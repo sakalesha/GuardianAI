@@ -26,7 +26,7 @@ const Dashboard = () => {
     const fetchAlerts = async () => {
       try {
         const token = localStorage.getItem("token"); // ✅ assume auth token stored after login
-        const response = await fetch("http://localhost:5000/api/alerts", {
+        const response = await fetch("https://guardianai-crp4.onrender.com/api/alerts", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
