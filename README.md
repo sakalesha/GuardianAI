@@ -1,240 +1,323 @@
+# GuardianAI
+A community-driven safety alert platform that allows residents to report incidents in real-time with images/videos, while providing admins and AI systems tools to verify, prioritize, and analyze alerts.
 
-# 🚨 Safety Alert Platform
+---
 
-> A community-driven safety reporting platform where residents can report neighborhood incidents (fire, accidents, vandalism, medical emergencies), enriched with AI-powered categorization and validation.
-
-![Badge](https://img.shields.io/badge/version-0.8.0-blue.svg)
-![Badge](https://img.shields.io/badge/license-MIT-green.svg)
-![Badge](https://img.shields.io/badge/status-in_development-yellow.svg)
-
-## 📘 Table of Contents
-
+## Table of Contents
 - [Overview](#overview)  
 - [Features](#features)  
 - [Tech Stack](#tech-stack)  
 - [Prerequisites](#prerequisites)  
 - [Installation](#installation)  
 - [Configuration](#configuration)  
+- [Usage](#usage)  
 - [Project Structure](#project-structure)  
 - [API Documentation](#api-documentation)  
-- [Current Progress](#current-progress)  
-- [Roadmap](#roadmap)  
-- [Screenshots](#screenshots)  
+- [Database Schema](#database-schema)  
+- [Environment Variables](#environment-variables)  
+- [Deployment](#deployment)  
 - [Contributing](#contributing)  
 - [License](#license)  
-- [References](#references)  
-- [Acknowledgments](#acknowledgments)  
-
-## 🔎 Overview
-
-Safety Alert is a full-stack web platform that allows residents to **report safety incidents** in their locality with **text, images, or videos**.  
-Admins and moderators can verify alerts, while AI models will later categorize severity and detect spam/false positives.
-
-The platform ensures a safer neighborhood through **community reporting + AI intelligence**.
-
-## ✨ Features
-
-### ✅ Completed  
-- **User authentication** (JWT + bcrypt)  
-- **Registration & Login pages**  
-- **Alert posting with media upload (image/video)**  
-- **My Alerts page**  
-- **Dashboard with navigation**  
-- **Multer file upload configured**  
-- **Alert model designed with AI fields**  
-
-### 🔄 In Progress  
-- Editable alert cards  
-- Admin verification panel  
-- Dashboard UI  
-- Pagination + search + filtering  
-
-### 🔮 Planned (Future)  
-- AI categorization (severity & category auto-detection)  
-- Duplicate/spam alert detection  
-- Real-time map view  
-- Push notifications  
-- Community zones/ward-level dashboards  
-
-## 🛠 Tech Stack
-
-### **Frontend**
-- React.js  
-- React Router  
-- TailwindCSS (planned)  
-- Axios  
-
-### **Backend**
-- Node.js  
-- Express.js  
-- MongoDB (Mongoose)  
-- Multer for media upload  
-- JWT Authentication  
-- bcrypt password hashing  
-
-### **Dev Tools**
-- Postman  
-- VS Code  
-- Git + GitHub  
-
-## 🧩 Prerequisites
-
-You should have the following installed:
-
-- **Node.js** (v16+)  
-- **npm**  
-- **MongoDB Atlas or local MongoDB server**  
-- **Git**  
-
-## 🚀 Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/safety-alert.git
-cd safety-alert
-```
-
-Install backend dependencies:
-
-```bash
-cd backend
-npm install
-```
-
-Run server:
-
-```bash
-npm start
-```
-
-## ⚙️ Configuration
-
-Create a `.env` file inside `backend/`:
-
-```
-MONGO_URI=your_mongo_uri
-JWT_SECRET=your_secret_key
-PORT=5000
-```
-
-Ensure an **uploads/** folder exists:
-
-```bash
-mkdir uploads
-```
-
-## 📁 Project Structure
-
-```
-backend/
-│── controllers/
-│     ├── authController.js
-│     ├── alertController.js
-│
-│── routes/
-│     ├── authRoutes.js
-│     ├── alertRoutes.js
-│
-│── models/
-│     ├── User.js
-│     ├── Alert.js
-│
-│── middleware/
-│     ├── authMiddleware.js
-│
-│── uploads/            # Image/Video storage
-│── server.js
-│── package.json
-│── .env
-```
-
-## 📡 API Documentation
-
-### **Auth Routes**
-| Method | Endpoint             | Description      |
-|--------|----------------------|------------------|
-| POST   | `/api/auth/register` | Register user    |
-| POST   | `/api/auth/login`    | Login user       |
-
-### **Alert Routes**
-| Method | Endpoint              | Description              |
-|--------|-----------------------|--------------------------|
-| POST   | `/api/alerts`         | Create alert (with media)|
-| GET    | `/api/alerts/mine`    | Get user's alerts        |
-| DELETE | `/api/alerts/:id`     | Delete an alert          |
-
-## 📌 Current Progress
-
-### ✔ Authentication System  
-Working end-to-end with registration & login pages integrated.
-
-### ✔ Alert Posting Module  
-- Media upload using Multer  
-- Stores images/videos in `/uploads`  
-- Saves title, description, category, severity, AI fields  
-
-### ✔ My Alerts Page  
-- Shows user-specific alerts  
-- Displays title, severity, description, location, media, timestamp  
-- Delete option enabled  
-
-### ✔ Dashboard Structure  
-- Navigation to all pages  
-- Ready to display alerts  
-
-## 🗺 Roadmap
-
-### **Phase 1 (Core Features)**  
-- [x] Auth module  
-- [x] Post alert with media  
-- [x] My Alerts  
-- [ ] Dashboard data feed  
-- [ ] Edit alert  
-
-### **Phase 2 (Admin + Controls)**  
-- [ ] Verification panel  
-- [ ] Alert moderation  
-- [ ] Category filters & severity filters  
-
-### **Phase 3 (AI Integration)**  
-- [ ] Auto-categorization  
-- [ ] Severity prediction  
-- [ ] Spam / duplicate detection  
-
-### **Phase 4 (Community Tools)**  
-- [ ] Live Map  
-- [ ] Real-time updates  
-- [ ] Push notifications  
-
-## 🖼 Screenshots
-
-*(Add after frontend UI is completed)*
-
-## 🤝 Contributing
-
-Contributions are welcome!  
-Feel free to open issues and submit pull requests.
-
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
-## 📚 References
-
-- Express.js Docs  
-- MongoDB Mongoose  
-- Multer Uploads  
-- JWT Authentication  
-- REST API Best Practices  
-
-## 🙏 Acknowledgments
-
-- Inspired by community safety platforms  
-- Thanks to everyone contributing to improving public safety  
-- Special appreciation to open-source libraries that make development easier  
+- [Contact](#contact)  
 
 ---
 
-**Last Updated:** November 13, 2025  
-**Version:** 0.8.0
+## Overview
+**GuardianAI** is a full-stack web platform designed to make communities safer by enabling residents to report incidents quickly and reliably. Users can submit alerts with images or videos, track their own reports, and browse community-wide alerts through an interactive dashboard.  
+This project is built using the **MERN stack (MongoDB, Express, React, Node.js)** and will soon incorporate AI capabilities such as auto-categorization, severity prediction, and spam detection.
+
+### Purpose
+- Provide a centralized platform for local safety incident reporting.  
+- Enable real-time visibility of community incidents.  
+- Allow authorities/admins to verify, classify, and respond to alerts.  
+- Prepare system for future AI-based threat assessment.
+
+### Target Users
+- Local residents  
+- Community moderators  
+- Municipal authorities  
+- Emergency response teams  
+
+### Key Objectives
+- Fast and simple alert submission  
+- Secure user authentication  
+- Transparent community dashboard  
+- Media upload support (images/videos)  
+- AI-enhanced alert classification *(coming soon)*  
+
+---
+
+## Features
+- User authentication (signup/login/logout)  
+- Alert creation with media upload (Multer)  
+- Private "My Alerts" dashboard  
+- Alert details view  
+- Secure JWT-based protected routes  
+- Interactive map integration (Leaflet)  
+- Role-based access (admin routes planned)  
+- Admin verification dashboard *(coming)*  
+- AI severity/category estimation *(coming)*  
+- Live real-time feed *(coming)*  
+- Multiple language support *(planned)*  
+- Push notifications *(planned)*  
+
+---
+
+## Tech Stack
+### Frontend
+- React.js  
+- React Router  
+- Tailwind CSS *(incoming)*  
+- Axios  
+- Leaflet (maps)  
+
+### Backend
+- Node.js  
+- Express.js  
+- MongoDB + Mongoose  
+- JWT Authentication  
+- Multer (file uploads)  
+- bcrypt (password hashing)  
+- dotenv  
+
+### DevOps & Deployment
+- GitHub  
+- MongoDB Atlas  
+- **Deployment options:**  
+  - Frontend → Vercel / Netlify  
+  - Backend → Render / Railway  
+
+### Additional Tools
+- Postman  
+- ESLint + Prettier *(optional)*  
+- npm scripts  
+
+---
+
+## Prerequisites
+Install the following:
+- Node.js v16+  
+- npm or yarn  
+- Git  
+- MongoDB / MongoDB Atlas  
+- VS Code *(recommended)*  
+
+Verify installation:
+
+node --version
+npm --version
+git --version
+
+
+---
+
+## Installation
+
+### 1. Clone the Repository
+
+git clone https://github.com/sakalesha/GuardianAI.git
+cd GuardianAI
+
+
+### 2. Install Backend Dependencies
+
+cd backend
+npm install
+
+
+### 3. Install Frontend Dependencies
+
+cd ../frontend
+npm install
+
+
+---
+
+## Configuration
+
+### Backend
+In `backend/`, create a `.env` file:
+
+cp .env.example .env
+
+Then update values as per your setup.
+
+### Frontend
+In `frontend/`, create a `.env`:
+
+REACT_APP_API_URL=http://localhost:5000/api
+
+
+---
+
+## Usage
+
+### Start Backend
+
+cd backend
+npm run dev
+
+Runs on: [http://localhost:5000](http://localhost:5000)
+
+### Start Frontend
+
+cd frontend
+npm start
+
+Runs on: [http://localhost:3000](http://localhost:3000)
+
+Access the app in your browser:  
+[http://localhost:3000](http://localhost:3000)
+
+---
+
+## Project Structure
+
+GuardianAI/
+├── backend/
+│ ├── controllers/
+│ ├── models/
+│ ├── routes/
+│ ├── middleware/
+│ ├── uploads/ # Multer media storage
+│ ├── server.js
+│ └── package.json
+│
+├── frontend/
+│ ├── src/
+│ │ ├── components/
+│ │ ├── pages/
+│ │ ├── context/
+│ │ ├── services/
+│ │ ├── App.js
+│ │ └── index.js
+│ └── package.json
+│
+├── README.md
+└── .gitignore
+
+
+---
+
+## API Documentation
+
+### Base URL
+`http://localhost:5000/api`
+
+### Authentication Endpoints
+| Method | Endpoint | Description |
+|--------|-----------|-------------|
+| POST | /auth/register | Register new user |
+| POST | /auth/login | User login |
+| GET  | /auth/me | Get logged-in user |
+
+### Alert Endpoints
+| Method | Endpoint | Description |
+|--------|-----------|-------------|
+| POST | /alerts | Create a new alert with media |
+| GET | /alerts/mine | Get alerts submitted by logged user |
+| GET | /alerts/:id | Get alert details |
+| DELETE | /alerts/:id | Delete alert |
+
+---
+
+## Database Schema
+
+### User Model
+
+User
+├── _id (ObjectId)
+├── name (String)
+├── email (String, unique)
+├── password (String, hashed)
+├── role (String: user/admin)
+├── createdAt
+└── updatedAt
+
+
+### Alert Model
+
+Alert
+├── _id (ObjectId)
+├── title (String)
+├── description (String)
+├── mediaUrl (String)
+├── location (String / GPS)
+├── severity (String) # planned
+├── aiCategory (String) # future
+├── aiSeverity (String) # future
+├── aiConfidence (Number) # future
+├── user (ObjectId -> User)
+├── createdAt
+└── updatedAt
+
+
+---
+
+## Environment Variables
+
+### Backend `.env`
+
+PORT=5000
+MONGO_URI=mongodb+srv://...
+JWT_SECRET=your_secret
+
+
+### Frontend `.env`
+
+REACT_APP_API_URL=http://localhost:5000/api
+
+
+---
+
+## Deployment
+
+### Frontend (Vercel)
+1. Connect GitHub repo  
+2. Add `REACT_APP_API_URL` in environment variables  
+3. Deploy with one click  
+
+### Backend (Render)
+1. Create new Web Service  
+2. Set environment variables  
+3. Deploy  
+
+### Database (MongoDB Atlas)
+1. Create a cluster  
+2. Add IP whitelist  
+3. Generate connection string  
+
+---
+
+## Contributing
+1. Fork the repo  
+2. Create feature branch:  
+
+git checkout -b feature/my-feature
+
+3. Commit changes  
+4. Push and create Pull Request  
+
+---
+
+## License
+This project is licensed under the **MIT License**.
+
+---
+
+## Contact
+**Author:** Ronada Sakalesha  
+**Email:** [ronadasakalesha@gmail.com](mailto:ronadasakalesha@gmail.com)  
+**GitHub:** [https://github.com/sakalesha](https://github.com/sakalesha)  
+
+For support or queries:  
+📩 Contact via email or open a GitHub issue.
+
+---
+
+### Optional Add-ons
+If you’d like, these can also be generated for your repo:
+- 📘 `API_DOCS.md`
+- 🧩 ER Diagram (PNG/SVG)
+- 💾 Postman Collection
+- 🖼️ Custom GitHub Banner Image

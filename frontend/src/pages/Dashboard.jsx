@@ -17,29 +17,39 @@ L.Icon.Default.mergeOptions({
 
 const Dashboard = () => {
   const navigate = useNavigate();
+
+  // Data
   const [alerts, setAlerts] = useState([]);
+
+  // UI State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 🔁 Fetch alerts from backend
+  // Search & Sort
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  // Fetch alert data
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
-        const token = localStorage.getItem("token"); // ✅ assume auth token stored after login
-        const response = await fetch("https://guardianai-crp4.onrender.com/api/alerts", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          "https://guardianai-crp4.onrender.com/api/alerts",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch alerts");
-        }
+        if (!response.ok) throw new Error("Failed to fetch alerts");
 
         const data = await response.json();
         setAlerts(data);
       } catch (err) {
-        console.error(err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -49,7 +59,6 @@ const Dashboard = () => {
     fetchAlerts();
   }, []);
 
-  // Convert UTC → local readable
   const formatLocalTime = (utc) =>
     new Date(utc).toLocaleString(undefined, {
       hour: "2-digit",
@@ -58,107 +67,134 @@ const Dashboard = () => {
       month: "short",
     });
 
-  if (loading) {
+  // Search filtering
+  const filtered = alerts.filter((a) => {
+    const s = search.toLowerCase();
+    return (
+      a.title.toLowerCase().includes(s) ||
+      (a.category && a.category.toLowerCase().includes(s)) ||
+      (a.location && a.location.toLowerCase().includes(s))
+    );
+  });
+
+  // Sorting
+  const sorted = filtered.sort((a, b) =>
+    sort === "newest"
+      ? new Date(b.timestamp) - new Date(a.timestamp)
+      : new Date(a.timestamp) - new Date(b.timestamp)
+  );
+
+  // Pagination
+  const totalPages = Math.ceil(sorted.length / limit);
+  const paginatedAlerts = sorted.slice((page - 1) * limit, page * limit);
+
+  if (loading)
     return (
       <div className="flex items-center justify-center h-screen text-gray-600">
         Loading alerts...
       </div>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
       <div className="flex items-center justify-center h-screen text-red-600">
         Error: {error}
       </div>
     );
-  }
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* 🔝 Top Navigation Bar */}
-      <div className="flex justify-between items-center bg-white shadow-md px-6 py-3">
-        <h1 className="text-xl font-bold text-gray-800">Safety Dashboard</h1>
-        <div className="space-x-3">
-          <button
-            onClick={() => navigate("/create-alert")}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          >
-            Post Alert
-          </button>
-          <button
-            onClick={() => navigate("/my-alerts")}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-          >
-            My Alerts
-          </button>
-          <button
-            onClick={() => navigate("/admin")}
-            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 transition"
-          >
-            Admin
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-col h-screen overflow-hidden">
 
-      {/* 🗺️ Map + List Layout */}
-      <div className="flex flex-col md:flex-row flex-1">
-        {/* Map Section */}
-        <div className="w-full md:w-2/3 h-1/2 md:h-full">
+      {/* MAIN LAYOUT */}
+      <div className="flex flex-col md:flex-row flex-1 min-h-0">
+
+        {/* -------------------- */}
+        {/* MAP SECTION */}
+        {/* -------------------- */}
+        <div className="w-full md:w-2/3 h-[60vh] md:h-[90vh]">
           <MapContainer
             center={[12.9716, 77.5946]}
             zoom={12}
             className="h-full w-full"
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-            {/* Alert Markers */}
-            {alerts.map((alert) => (
-              <Marker
-                key={alert._id}
-                position={[alert.latitude, alert.longitude]}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <h3 className="font-semibold text-lg">{alert.title}</h3>
-                    <p className="text-gray-600 mb-1">{alert.description}</p>
-                    <span
-                      className={`inline-block px-2 py-1 text-xs rounded ${
-                        alert.severity === "High"
-                          ? "bg-red-500 text-white"
-                          : alert.severity === "Medium"
-                          ? "bg-yellow-400 text-gray-900"
-                          : "bg-green-400 text-gray-900"
-                      }`}
-                    >
-                      {alert.severity}
-                    </span>
-                    <p className="text-gray-500 mt-1 text-xs">
-                      {formatLocalTime(alert.timestamp)}
-                    </p>
-                    <button
-                      onClick={() => navigate(`/alerts/${alert._id}`)}
-                      className="mt-2 text-blue-600 hover:underline font-medium"
-                    >
-                      View Details →
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+            {alerts
+              .filter((a) => a.latitude && a.longitude)
+              .map((alert) => (
+                <Marker
+                  key={alert._id}
+                  position={[alert.latitude, alert.longitude]}
+                >
+                  <Popup>
+                    <div className="text-sm">
+                      <h3 className="font-semibold text-lg">{alert.title}</h3>
+                      <p className="text-gray-600 mb-1">{alert.description}</p>
+                      <span
+                        className={`inline-block px-2 py-1 text-xs rounded ${
+                          alert.severity === "High"
+                            ? "bg-red-500 text-white"
+                            : alert.severity === "Medium"
+                            ? "bg-yellow-400 text-gray-900"
+                            : "bg-green-400 text-gray-900"
+                        }`}
+                      >
+                        {alert.severity}
+                      </span>
+                      <p className="text-gray-500 mt-1 text-xs">
+                        {formatLocalTime(alert.timestamp)}
+                      </p>
+                      <button
+                        onClick={() => navigate(`/alerts/${alert._id}`)}
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        View Details →
+                      </button>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
           </MapContainer>
         </div>
 
-        {/* 📋 Alerts List */}
-        <div className="w-full md:w-1/3 bg-gray-50 overflow-y-auto p-4">
-          <h2 className="text-xl font-bold mb-3">Recent Alerts</h2>
-          {alerts.length === 0 ? (
-            <p className="text-gray-500">No alerts yet.</p>
+        {/* -------------------- */}
+        {/* ALERTS PANEL */}
+        {/* -------------------- */}
+        <div className="w-full md:w-1/3 bg-gray-50 h-full overflow-y-auto p-4">
+
+          {/* Sticky Search + Sort */}
+          <div className="sticky top-0 bg-gray-50 pb-3 z-10">
+
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-bold">Recent Alerts</h2>
+
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="border rounded px-2 py-1 text-sm bg-white"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search title, category, location..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full mb-3 px-3 py-2 border rounded bg-white"
+            />
+          </div>
+
+          {/* Alert Cards */}
+          {paginatedAlerts.length === 0 ? (
+            <p className="text-gray-500">No alerts found.</p>
           ) : (
-            alerts.map((alert) => (
+            paginatedAlerts.map((alert) => (
               <div
                 key={alert._id}
                 onClick={() => navigate(`/alerts/${alert._id}`)}
@@ -174,11 +210,9 @@ const Dashboard = () => {
                 <div className="mt-2">
                   <h3 className="font-semibold text-lg">{alert.title}</h3>
                   <p className="text-gray-600 text-sm mb-1">
-                    {alert.description.length > 80
-                      ? alert.description.slice(0, 80) + "..."
-                      : alert.description}
+                    {alert.description.slice(0, 80)}...
                   </p>
-                  <div className="flex justify-between items-center text-sm">
+                  <div className="flex justify-between text-sm">
                     <span
                       className={`px-2 py-1 rounded ${
                         alert.severity === "High"
@@ -198,6 +232,32 @@ const Dashboard = () => {
               </div>
             ))
           )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-4 space-x-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >
+                Prev
+              </button>
+
+              <span className="px-3 py-1 font-semibold">
+                {page} / {totalPages}
+              </span>
+
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

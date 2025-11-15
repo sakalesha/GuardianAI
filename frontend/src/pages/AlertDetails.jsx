@@ -1,117 +1,85 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import toast from "react-hot-toast";
 
 const AlertDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
-
   const [alert, setAlert] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const fetchAlert = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`https://guardianai-crp4.onrender.com/api/alerts/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAlert(res.data);
+    } catch (err) {
+      console.error("Error fetching alert:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this alert?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`https://guardianai-crp4.onrender.com/api/alerts/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success("Alert deleted successfully");
+      navigate("/my-alerts");
+    } catch (err) {
+      console.error("Error deleting alert:", err);
+
+      toast.error("Failed to delete alert");
+    }
+  };
 
   useEffect(() => {
-    const fetchAlert = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const response = await fetch(
-          `https://guardianai-crp4.onrender.com/api/alerts/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Alert not found");
-        }
-
-        const data = await response.json();
-        setAlert(data);
-      } catch (error) {
-        console.error("Error fetching alert:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAlert();
-  }, [id]);
+  }, []);
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-600">
-        Loading alert details...
-      </div>
-    );
-
-  if (!alert)
-    return (
-      <div className="flex flex-col items-center justify-center h-screen text-red-600">
-        <p className="text-lg font-semibold">Alert not found.</p>
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Back to Dashboard
-        </button>
-      </div>
-    );
+  if (loading) return <p>Loading alert...</p>;
+  if (!alert) return <p>Alert not found.</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="text-blue-600 hover:underline mb-6"
-      >
-        ← Back
-      </button>
+    <div className="max-w-3xl mx-auto mt-10 bg-white shadow-md rounded-xl p-6">
+      <h2 className="text-2xl font-semibold">{alert.title}</h2>
+      <p className="text-gray-600 mt-2">{alert.description}</p>
+      <p className="mt-2 text-sm text-gray-500">Severity: {alert.severity}</p>
+      <p className="text-sm text-gray-500">
+        Location: {alert.location || "N/A"}
+      </p>
+      <p className="text-xs text-gray-400 mt-1">
+        Posted on {new Date(alert.createdAt).toLocaleString()}
+      </p>
 
-      <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        {alert.mediaUrl && (
-          <img
-            src={`https://guardianai-crp4.onrender.com${alert.mediaUrl}`}
-            alt={alert.title}
-            className="w-full h-64 object-cover"
-          />
-        )}
+      {alert.mediaUrl && (
+        <img
+          src={`https://guardianai-crp4.onrender.com${alert.mediaUrl}`}
+          alt="alert"
+          className="mt-4 w-full h-64 object-cover rounded-lg"
+        />
+      )}
 
-        <div className="p-6">
-          <h1 className="text-2xl font-bold mb-2">{alert.title}</h1>
-
-          <span
-            className={`inline-block px-3 py-1 text-sm rounded mb-4 ${
-              alert.severity === "High"
-                ? "bg-red-500 text-white"
-                : alert.severity === "Medium"
-                ? "bg-yellow-400 text-gray-900"
-                : "bg-green-400 text-gray-900"
-            }`}
-          >
-            {alert.severity}
-          </span>
-
-          <p className="text-gray-700 leading-relaxed mb-3">
-            {alert.description}
-          </p>
-
-          <div className="text-sm text-gray-500 space-y-1">
-            <p>
-              <strong>Reported on:</strong>{" "}
-              {new Date(alert.timestamp).toLocaleString()}
-            </p>
-
-            <p>
-              <strong>Location:</strong> {alert.location}
-            </p>
-
-            {alert.category && (
-              <p>
-                <strong>Category:</strong> {alert.category}
-              </p>
-            )}
-          </div>
-        </div>
+      <div className="flex justify-end gap-4 mt-6">
+        <button
+          onClick={() => navigate(`/alerts/edit/${alert._id}`)}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Edit
+        </button>
+        <button
+          onClick={handleDelete}
+          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+        >
+          Delete
+        </button>
       </div>
     </div>
   );

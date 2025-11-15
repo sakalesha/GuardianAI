@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const MyAlerts = () => {
   const [alerts, setAlerts] = useState([]);
@@ -29,8 +30,12 @@ const MyAlerts = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setAlerts(alerts.filter((a) => a._id !== id));
+
+      toast.success("Alert deleted successfully");
     } catch (err) {
       console.error("Error deleting alert:", err);
+
+      toast.error("Failed to delete alert");
     }
   };
 

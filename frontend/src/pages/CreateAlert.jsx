@@ -2,6 +2,7 @@ import { useState, useContext, useEffect } from "react";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 export default function CreateAlert() {
   const [form, setForm] = useState({
@@ -15,16 +16,15 @@ export default function CreateAlert() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [detecting, setDetecting] = useState(false);
 
   const { token } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // 📍 AUTO-GET GPS + REVERSE GEOCODE
+  // 🌍 Auto-detect location
   const detectLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation not supported on your device.");
+      toast.error("Geolocation not supported.");
       return;
     }
 
@@ -41,31 +41,29 @@ export default function CreateAlert() {
           longitude: lon,
         }));
 
-        // Reverse Geocode using OpenStreetMap
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
           );
           const data = await res.json();
-
           setForm((prev) => ({
             ...prev,
-            location: data.display_name || "Location detected",
+            location: data.display_name || "",
           }));
-        } catch (err) {
-          console.log("Reverse geocoding error:", err);
+        } catch {
+          toast.error("Unable to get address!");
         }
 
         setDetecting(false);
       },
-      (err) => {
-        alert("Location permission denied.");
+      () => {
+        toast.error("Location permission denied.");
         setDetecting(false);
       }
     );
   };
 
-  // Run auto-detect when page loads
+  // Auto Detect on mount
   useEffect(() => {
     detectLocation();
   }, []);
@@ -81,117 +79,129 @@ export default function CreateAlert() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!token) {
-      alert("You must be logged in to post an alert!");
-      return;
-    }
+    if (!token) return toast.error("Login required!");
 
     setLoading(true);
+
     const formData = new FormData();
-    Object.entries(form).forEach(([key, value]) => formData.append(key, value));
+    Object.entries(form).forEach(([k, v]) => formData.append(k, v));
     if (file) formData.append("media", file);
 
     try {
-      await axios.post("https://guardianai-crp4.onrender.com/api/alerts", formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
+      await axios.post("http://localhost:5000/api/alerts", formData, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      setSuccess(true);
-      setTimeout(() => navigate("/user/dashboard"), 1500);
-    } catch (err) {
-      console.error(err);
-      alert("❌ Failed to post alert. Please try again.");
+      toast.success("Alert posted successfully!");
+      setTimeout(() => navigate("/user/dashboard"), 1200);
+    } catch {
+      toast.error("Failed to post alert");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center mt-10">
+    <div className="flex justify-center px-4 py-8 bg-gray-50 min-h-screen">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 shadow-lg rounded-lg w-96 border border-gray-200"
+        className="bg-white p-6 md:p-8 shadow-xl rounded-2xl w-full max-w-md border border-gray-100"
       >
-        <h2 className="text-xl font-bold mb-4 text-center text-blue-700">
-          Post a Neighborhood Alert
+        <h2 className="text-2xl font-bold mb-6 text-center text-blue-600">
+          🚨 Post a Neighborhood Alert
         </h2>
 
+        {/* Title */}
+        <label className="text-gray-700 font-medium">Alert Title</label>
         <input
           type="text"
           name="title"
-          placeholder="Alert Title"
           value={form.title}
           onChange={handleChange}
-          className="w-full border p-2 mb-3 rounded"
+          placeholder="e.g. Fire near main road"
+          className="w-full mt-1 mb-4 p-3 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none"
           required
         />
 
+        {/* Description */}
+        <label className="text-gray-700 font-medium">Description</label>
         <textarea
           name="description"
-          placeholder="Describe the situation..."
-          rows="3"
           value={form.description}
           onChange={handleChange}
-          className="w-full border p-2 mb-3 rounded"
+          placeholder="Describe what happened..."
+          className="w-full mt-1 mb-4 p-3 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          rows="3"
           required
         />
 
-        <div className="flex items-center gap-2 mb-3">
+        {/* Location Field + Detect Button */}
+        <label className="text-gray-700 font-medium">Location</label>
+        <div className="flex gap-2 mt-1 mb-4">
           <input
             type="text"
             name="location"
-            placeholder="Enter location or landmark"
             value={form.location}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
+            placeholder="Enter address or auto-detected"
+            className="flex-1 p-3 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none"
             required
           />
 
           <button
             type="button"
             onClick={detectLocation}
-            className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition"
           >
-            {detecting ? "…" : "📍"}
+            {detecting ? "..." : "📍"}
           </button>
         </div>
 
         <input type="hidden" name="latitude" value={form.latitude} />
         <input type="hidden" name="longitude" value={form.longitude} />
 
-        <div className="mb-3">
-          <label className="block mb-1 font-semibold">Upload Image/Video</label>
-          <input type="file" accept="image/*,video/*" onChange={handleFileChange} className="w-full border p-2 rounded" />
+        {/* File Upload */}
+        <label className="text-gray-700 font-medium">Upload Media</label>
+        <div className="mt-1 mb-4">
+          <input
+            type="file"
+            accept="image/*,video/*"
+            onChange={handleFileChange}
+            className="w-full p-3 border rounded-xl"
+          />
 
           {preview && (
             <div className="mt-3">
               {file.type.startsWith("image/") ? (
-                <img src={preview} alt="preview" className="w-full h-40 object-cover rounded" />
+                <img
+                  src={preview}
+                  alt="preview"
+                  className="w-full h-48 object-cover rounded-xl shadow"
+                />
               ) : (
-                <video src={preview} controls className="w-full h-40 rounded" />
+                <video
+                  controls
+                  src={preview}
+                  className="w-full h-48 rounded-xl shadow"
+                />
               )}
             </div>
           )}
         </div>
 
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={loading}
-          className={`w-full py-2 rounded text-white font-semibold ${
-            loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
-          }`}
+          className={`w-full py-3 rounded-xl text-white font-semibold shadow-md transition 
+            ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
         >
           {loading ? "Posting..." : "Submit Alert"}
         </button>
-
-        {success && (
-          <p className="text-green-600 text-center mt-3">
-            ✅ Alert posted successfully!
-          </p>
-        )}
       </form>
     </div>
   );
