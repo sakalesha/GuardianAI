@@ -233,6 +233,7 @@ User
 ├── role (String: user/admin)
 ├── createdAt
 └── updatedAt
+undefined
 
 
 ### Alert Model
@@ -250,7 +251,7 @@ Alert
 ├── user (ObjectId -> User)
 ├── createdAt
 └── updatedAt
-
+undefined
 
 ---
 
@@ -313,11 +314,3 @@ This project is licensed under the **MIT License**.
 For support or queries:  
 📩 Contact via email or open a GitHub issue.
 
----
-
-### Optional Add-ons
-If you’d like, these can also be generated for your repo:
-- 📘 `API_DOCS.md`
-- 🧩 ER Diagram (PNG/SVG)
-- 💾 Postman Collection
-- 🖼️ Custom GitHub Banner Image
