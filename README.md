@@ -224,7 +224,7 @@ GuardianAI/
 ## Database Schema
 
 ### User Model
-
+'''
 User
 ├── _id (ObjectId)
 ├── name (String)
@@ -233,11 +233,12 @@ User
 ├── role (String: user/admin)
 ├── createdAt
 └── updatedAt
-undefined
+'''
 
 
 ### Alert Model
 
+'''
 Alert
 ├── _id (ObjectId)
 ├── title (String)
@@ -251,7 +252,7 @@ Alert
 ├── user (ObjectId -> User)
 ├── createdAt
 └── updatedAt
-undefined
+'''
 
 ---
 
