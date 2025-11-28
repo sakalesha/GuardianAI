@@ -2,99 +2,126 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
+import Loader from "../components/Loader";
+
+const API_BASE = "https://guardianai-crp4.onrender.com";
 
 const MyAlerts = () => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchMyAlerts = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("https://guardianai-crp4.onrender.com/api/alerts/mine", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAlerts(res.data);
-    } catch (err) {
-      console.error("Error fetching alerts:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch user's alerts
+  useEffect(() => {
+    const loadMyAlerts = async () => {
+      try {
+        const token = localStorage.getItem("token");
 
+        const res = await axios.get(`${API_BASE}/api/alerts/mine`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setAlerts(res.data);
+      } catch (err) {
+        console.error(err);
+        toast.error("Unable to load your alerts");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMyAlerts();
+  }, []);
+
+  // Delete alert
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this alert?")) return;
+    if (!window.confirm("Delete this alert permanently?")) return;
+
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`https://guardianai-crp4.onrender.com/api/alerts/${id}`, {
+
+      await axios.delete(`${API_BASE}/api/alerts/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setAlerts(alerts.filter((a) => a._id !== id));
 
+      setAlerts((prev) => prev.filter((alert) => alert._id !== id));
       toast.success("Alert deleted successfully");
     } catch (err) {
-      console.error("Error deleting alert:", err);
-
+      console.error(err);
       toast.error("Failed to delete alert");
     }
   };
 
-  useEffect(() => {
-    fetchMyAlerts();
-  }, []);
-
-  if (loading) return <p className="text-center mt-8">Loading your alerts...</p>;
+  // Loader
+  if (loading) return <Loader text="Loading your alerts..." />;
 
   return (
-    <div className="max-w-5xl mx-auto mt-10 px-4">
-      <h1 className="text-2xl font-semibold mb-6 text-gray-800">My Alerts</h1>
+    <div className="max-w-6xl mx-auto mt-10 px-4 pb-10">
+      <h1 className="text-3xl font-bold mb-6 text-gray-800 text-center">
+        📂 My Alerts
+      </h1>
 
       {alerts.length === 0 ? (
-        <p className="text-gray-500 text-center mt-10">
+        <p className="text-gray-500 text-center mt-10 text-lg">
           You haven’t posted any alerts yet. 🚨
         </p>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {alerts.map((alert) => (
             <div
               key={alert._id}
-              className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition"
+              className="bg-white rounded-xl shadow-md border border-gray-200 p-4 hover:shadow-xl hover:-translate-y-1 transition-all"
             >
-              <h2 className="text-lg font-semibold">{alert.title}</h2>
-              <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
+              {/* Title */}
+              <h2 className="text-lg font-semibold text-gray-900">
+                {alert.title}
+              </h2>
+
+              {/* Description */}
+              <p className="text-sm text-gray-600 mt-1">
+                {alert.description?.substring(0, 100)}...
+              </p>
+
+              {/* Severity + Timestamp */}
               <div className="flex justify-between items-center mt-3">
-                <span className={`text-xs px-2 py-1 rounded ${
-                  alert.severity === "High"
-                    ? "bg-red-100 text-red-600"
-                    : alert.severity === "Medium"
-                    ? "bg-yellow-100 text-yellow-600"
-                    : "bg-green-100 text-green-600"
-                }`}>
+                <span
+                  className={`text-xs px-2 py-1 rounded font-medium ${
+                    alert.severity === "High"
+                      ? "bg-red-100 text-red-600"
+                      : alert.severity === "Medium"
+                      ? "bg-yellow-100 text-yellow-600"
+                      : "bg-green-100 text-green-600"
+                  }`}
+                >
                   {alert.severity}
                 </span>
+
                 <span className="text-xs text-gray-500">
                   {new Date(alert.createdAt).toLocaleString()}
                 </span>
               </div>
 
+              {/* Media */}
               {alert.mediaUrl && (
                 <img
-                  src={`https://guardianai-crp4.onrender.com${alert.mediaUrl}`}
-                  alt="alert media"
-                  className="mt-3 w-full h-40 object-cover rounded-lg"
+                  src={`${API_BASE}${alert.mediaUrl}`}
+                  alt="alert"
+                  className="mt-3 w-full h-36 object-cover rounded-lg shadow-sm"
                 />
               )}
 
-              <div className="flex justify-end gap-3 mt-4">
+              {/* Buttons */}
+              <div className="flex justify-between mt-4">
                 <button
                   onClick={() => navigate(`/alerts/${alert._id}`)}
-                  className="text-blue-600 hover:underline text-sm"
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
                   View
                 </button>
+
                 <button
                   onClick={() => handleDelete(alert._id)}
-                  className="text-red-600 hover:underline text-sm"
+                  className="px-3 py-1 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                 >
                   Delete
                 </button>

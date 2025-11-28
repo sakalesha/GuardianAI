@@ -9,43 +9,48 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
+  // handle form input changes
+  const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
+  // handle submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setLoading(true);
 
     try {
-      const response = await fetch("https://guardianai-crp4.onrender.com/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        "https://guardianai-crp4.onrender.com/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        }
+      );
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Invalid email or password.");
+      if (!response.ok) throw new Error(data.message || "Invalid credentials.");
 
-      // ✅ UPDATE AUTH CONTEXT (Fixes logout issue)
+      // save token + user
       setToken(data.token);
       setUser(data.user);
 
-      // persist
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // route based on role
-      if (data.user.role === "admin") {
-        navigate("/admin/dashboard", { replace: true });
-      } else {
-        navigate("/user/dashboard", { replace: true });
-      }
+      // redirect based on role
+      const route =
+        data.user.role === "admin"
+          ? "/admin/dashboard"
+          : "/user/dashboard";
+
+      navigate(route, { replace: true });
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || "Something went wrong, try again.");
     } finally {
       setLoading(false);
     }
@@ -54,14 +59,15 @@ const LoginPage = () => {
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-md">
+
         <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
           Login to Your Account
         </h2>
 
         {error && (
-          <div className="bg-red-100 text-red-700 p-3 mb-4 rounded-lg text-sm">
+          <p className="bg-red-100 text-red-700 p-3 mb-4 rounded-lg text-sm">
             ⚠️ {error}
-          </div>
+          </p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -74,7 +80,7 @@ const LoginPage = () => {
               required
               value={formData.email}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
               placeholder="Enter your email"
             />
           </div>
@@ -89,9 +95,10 @@ const LoginPage = () => {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter your password"
               />
+
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -102,48 +109,23 @@ const LoginPage = () => {
             </div>
           </div>
 
-          {/* Submit */}
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white font-medium py-3 rounded-xl hover:bg-blue-700 transition"
+            className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {loading ? (
-              <div className="flex justify-center items-center">
-                <svg
-                  className="animate-spin h-5 w-5 text-white mr-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                  ></path>
-                </svg>
-                Logging in...
-              </div>
-            ) : (
-              "Login"
-            )}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
         <p className="text-center text-gray-600 text-sm mt-6">
-          Don’t have an account?{" "}
+          Don't have an account?{" "}
           <Link to="/register" className="text-blue-600 hover:underline">
             Register here
           </Link>
         </p>
+
       </div>
     </div>
   );
