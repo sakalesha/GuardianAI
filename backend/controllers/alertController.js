@@ -4,17 +4,9 @@ const path = require("path");
 const fs = require("fs");
 
 // ==========================
-// 📂 File Upload Configuration
+// 📂 File Upload Configuration (Memory Storage for MongoDB)
 // ==========================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = "uploads/";
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname)),
-});
+const storage = multer.memoryStorage();
 
 exports.upload = multer({ storage });
 
@@ -29,7 +21,11 @@ exports.createAlert = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const mediaUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    let mediaUrl = null;
+    if (req.file) {
+      const base64Data = req.file.buffer.toString("base64");
+      mediaUrl = `data:${req.file.mimetype};base64,${base64Data}`;
+    }
 
     const alert = new Alert({
       userId: req.user.id,
@@ -140,7 +136,8 @@ exports.updateAlert = async (req, res) => {
     if (category) alert.category = category;
 
     if (req.file) {
-      alert.mediaUrl = `/uploads/${req.file.filename}`;
+      const base64Data = req.file.buffer.toString("base64");
+      alert.mediaUrl = `data:${req.file.mimetype};base64,${base64Data}`;
     }
 
     await alert.save();
