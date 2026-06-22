@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-const API_BASE = "http://localhost:3001/api/auth";
+const API_BASE = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/auth` 
+  : "http://localhost:3001/api/auth";
 const TOKEN_KEY = "civicproof_token";
 
 const AuthContext = createContext(undefined);
