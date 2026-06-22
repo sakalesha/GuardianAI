@@ -1,16 +1,16 @@
 {
-  "name": "safetyalert-root",
-  "version": "1.0.0",
-  "description": "Root project to run frontend and backend concurrently",
+  "name": "guardianai-root",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "install:backend": "cd backend && npm install",
-    "install:frontend": "cd frontend && npm install",
-    "install-all": "npm run install:backend && npm run install:frontend",
-    "start:backend": "cd backend && npm start",
-    "start:frontend": "cd frontend && npm start",
-    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "dev": "npm run dev -w frontend",
+    "build": "npm run build -w frontend",
+    "lint": "npm run lint -w frontend && npm run lint -w backend",
+    "preview": "npm run preview -w frontend",
+    "backend:dev": "npm run dev -w backend",
+    "run": "npx concurrently -c \"blue,green,magenta\" -n \"ui,api,ml\" \"npm run dev -w frontend\" \"npm run dev -w backend\" \"cd ml && python ml_api.py\""
   }
 }
