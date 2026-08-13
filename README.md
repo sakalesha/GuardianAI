@@ -259,9 +259,9 @@ MONGODB_URI=mongodb://127.0.0.1:27017/civicproof
 ```env
 PORT=3001
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.ljtbvr5.mongodb.net/civicproof?appName=Cluster0
-CLOUDINARY_CLOUD_NAME=CLOUD_NAME_REMOVED
-CLOUDINARY_API_KEY=API_KEY_REMOVED
-CLOUDINARY_API_SECRET=<your-cloudinary-secret>
+CLOUDINARY_CLOUD_NAME=<your-cloudinary-cloud-name>
+CLOUDINARY_API_KEY=<your-cloudinary-api-key>
+CLOUDINARY_API_SECRET=<your-cloudinary-api-secret>
 JWT_SECRET=civicproof-super-secret-jwt-key-2024
 ML_API_URL=http://localhost:5000
 ```
@@ -527,7 +527,7 @@ GET /api/complaints
     "userId": "64a1b2c3d4e5f6a7b8c9d0e1",
     "category": "Pothole",
     "description": "Massive pothole on main street.",
-    "imageUrl": "https://res.cloudinary.com/CLOUD_NAME_REMOVED/image/upload/v1234567890/civicproof/complaints/abc123.webp",
+    "imageUrl": "https://res.cloudinary.com/<your-cloud-name>/image/upload/v1234567890/civicproof/complaints/abc123.webp",
     "latitude": 12.9716,
     "longitude": 77.5946,
     "timestamp": "2024-08-01T10:30:00.000Z",
