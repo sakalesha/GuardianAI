@@ -12,5 +12,8 @@
     "preview": "npm run preview -w frontend",
     "backend:dev": "npm run dev -w backend",
     "run": "npx concurrently -c \"blue,green,magenta\" -n \"ui,api,ml\" \"npm run dev -w frontend\" \"npm run dev -w backend\" \"cd ml && python ml_api.py\""
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }

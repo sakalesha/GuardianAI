@@ -1,0 +1,111 @@
+Project : GuardianAI
+
+Problem Statement:
+Here is the exact problem statement that GuardianAI addresses, as outlined in the project report:
+
+**The "Verification Crisis" of Civic Issue Reporting:**
+
+1. **Unreported & Ignored Hazards:** Everyday community infrastructure hazards—like potholes, broken streetlights, or illegal garbage dumping—often go unreported, or citizens lack an easy, reliable way to report them with solid proof.
+2. **Fraudulent Reporting & Resolutions:** There is no easy way to verify if a citizen's report is genuine (taken at the actual location and time) or if a field worker has genuinely resolved the issue (rather than falsely claiming it fixed from a remote location).
+3. There is no platform that gives these both the problems at one platform
+4. **Lack of Transparency:** Citizens have no visibility into the status of their reports, and authorities lack real-time oversight of community issues and worker performance.
+
+Solution:
+GuardianAI solves these problems by using a combination of **Machine Learning models**, **geospatial validation**, and **real-time data** to act as an intelligent, transparent civic issue reporting system. Here is how it tackles each crisis:
+
+1. **To solve Unreported & Ignored Hazards:** 
+   It uses an AI-powered **Civic Hazard Detection Model** (custom YOLOv8) that automatically analyzes uploaded photos to classify the civic issue (e.g., pothole, broken streetlight) and assigns a severity level (High/Medium/Low).
+
+How image is processed:
+1. **Improve the image** 🖼️
+   The system first makes the photo clearer by adjusting brightness, increasing contrast, and sharpening it. This helps the AI see details better.
+2. **AI detects objects** 🤖
+   The improved image is given to the custom YOLOv8 model. Instead of looking at the whole image, YOLO finds specific objects (like potholes or garbage), draws boxes around them, and gives each one a confidence score.
+3. **Remove uncertain detections** ✅
+   If YOLO is less than **30% confident**, that detection is ignored to avoid false alarms.
+4. **Convert to civic issue** 🏙️
+   The detected object names are translated into complaint categories that the municipality understands.
+
+   * `pothole` → `ROAD_DAMAGE_DETECTED`
+   * `garbage` → `WASTE_MANAGEMENT_ISSUE`
+   * `broken_streetlight` → `STREETLIGHT_REPAIR_NEEDED`
+
+   If the detected object isn't related to civic problems (like a person or a dog), it is ignored.
+
+### One-line summary
+
+**Image → Enhance → YOLO detects objects → Remove low-confidence results → Convert valid detections into civic issue categories.**
+
+Resolution Verification
+A. For the Resolution Verification, the system utilizes OpenCV ORB (Oriented FAST and Rotated BRIEF) feature matching to compute visual similarity scores between the original "before" photo and the worker's "after" resolution photo.
+
+In GuardianAI, when a field worker attempts to mark a hazard as "resolved," the system uses a strict two-step verification process to prevent fraud and confirm the fix. 
+
+Here is how the resolution workflow operates behind the scenes:
+
+### 1. Live GPS Validation (Anti-Fraud Gate)
+When the worker uploads the "after" (resolution) photo, the frontend app automatically captures their **live device GPS coordinates** and sends them to the Node.js backend.
+*   The backend pulls the original GPS coordinates of the reported hazard from the MongoDB database.
+*   It calculates the physical distance between the worker and the hazard using the Haversine formula.
+*   **The Rule:** If the worker is more than **500 meters** away, the system instantly rejects the submission with a `REJECTED_GPS` status. This prevents workers from marking jobs as resolved while sitting at home.
+
+### 2. Visual AI Verification (The "Before & After" Check)
+If the GPS check passes, both the original "before" photo and the new "after" photo are sent to the Python ML Microservice to visually prove the fix.
+
+**Step A: Background Matching (ORB)**
+*   The ML service uses **OpenCV ORB** (Oriented FAST and Rotated BRIEF) feature matching. 
+*   Instead of comparing the whole image, ORB looks for hundreds of tiny "keypoints" (distinctive corners, textures, or permanent structures) that exist in both photos. 
+*   It calculates a **Match Score** to confirm the worker is actually taking a picture of the same physical location, even if the lighting or camera angle is slightly different.
+
+**Step B: AI Object Detection (YOLOv8)**
+*   The system runs the custom YOLOv8 model on *both* images to see if the hazard is still present.
+
+**Step C: The Final Decision Logic**
+The system combines the Background Score and the Object Detections to make an automated decision:
+*   **High Confidence (Score > 0.45):** 
+    *   If the hazard was in the 'before' photo but is gone in the 'after' photo 👉 `VERIFIED_RESOLUTION` (Issue closed successfully).
+    *   If the hazard is *still* detected in the 'after' photo 👉 `NEEDS_HUMAN_REVIEW` (Flagged for a human authority to check).
+*   **Uncertain Location (Score between 0.20 and 0.45):** 
+    *   The backgrounds share some similarities, but the camera angle might be too drastic to be sure. It flags it as `UNCERTAIN_LOCATION`.
+*   **Total Mismatch (Score < 0.20):**
+    *   The backgrounds share almost no features. The system assumes the worker took a photo of a completely different place and flags it as `SUSPICIOUS_DIFFERENT_LOCATION`.
+2. **To solve Fraudulent Reporting & Resolutions:** 
+   It uses strict **GPS & EXIF Validation**. For citizen reports, it extracts EXIF data to ensure the embedded GPS coordinates match the device's location (within 500m) and the photo is fresh (under 48 hours old). For worker resolutions, it uses live device GPS to prevent remote resolutions by instantly rejecting submissions where the worker is over 500m away from the hazard.
+
+3. **To solve Lack of Transparency:** 
+   It features an **Interactive Mapping & Public Feed**. By providing a real-time public map with multiple views (pins, clusters, severity-based heatmap) and a continuous audit log of all state transitions, citizens and authorities can see exactly what needs to be fixed and track when it gets resolved.
+
+
+System workflow
+
+Here is the behind-the-scenes **System Workflow** detailing how the different technologies in GuardianAI interact to process a request:
+
+**1. Client Interaction (Frontend)**
+*   The citizen or worker interacts with the **React SPA User Interface**. When they submit a form (e.g., uploading a hazard photo with device GPS), the React app sends an HTTP request to the main backend server.
+
+**2. API Gateway (Node.js/Express Backend)**
+*   The **Node.js Express Server** acts as the central orchestrator and business logic hub. 
+*   **Standard Requests:** If the request is for Authentication, fetching Map Data, or validating EXIF/GPS, the Node.js server handles it directly, communicating with the **MongoDB Database** to read/write data and using the **Cloudinary CDN** to securely stream and store image binaries.
+*   **AI/ML Requests:** If the request requires AI detection (Hazard Classification) or visual matching (Resolution Verification), the Node.js server securely forwards the image URLs to the internal Machine Learning Microservice.
+
+**3. Model Inference (Python/Flask ML Service)**
+*   The **Python Flask API** (running internally) receives the forwarded image URLs.
+*   It loads the specific model into memory (e.g., Custom YOLOv8 for detection, or OpenCV ORB for visual matching).
+*   The model processes the input, generates the classification or match score, and the Flask API sends the result back to the Node.js server.
+
+**4. Response & Display**
+*   The Node.js server receives the AI results from the Python service. It updates the alert status in MongoDB (recording an immutable audit history) and then packages everything into a clean JSON response.
+*   This response is sent back to the React frontend, instantly updating the interactive public map and providing real-time feedback to the user via UI notifications.
+
+
+Technologies used:
+Frontend: React.js, React-Leaflet
+Backend: Node.js, Express.js
+Database: MongoDB
+Storage: Cloudinary CDN
+1. **Frontend to Backend:** The frontend converts the image to a Base64 string and sends it to the backend.
+2. **Direct Upload:** The backend instantly uploads this string directly to Cloudinary (into the `civicproof/complaints` folder) without saving anything to the local server disk.
+3. **Database Storage:** Cloudinary returns a secure URL for the hosted image, and the backend saves **only that URL** in the MongoDB database.
+
+Machine learning: Flask: A decoupled Python web framework used to expose the ML models via an internal API.
+YOLOv8, OpenCV (For ORB Feature Matching)

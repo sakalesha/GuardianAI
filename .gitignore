@@ -7,3 +7,5 @@ frontend/dist/
 backend/err.log
 frontend/err.log
 *.log
+__pycache__/
+*.pyc

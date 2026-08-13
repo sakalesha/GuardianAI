@@ -1,0 +1,381 @@
+# GuardianAI - Engineering Onboarding Document
+
+Welcome to GuardianAI (also referred to internally as CivicProof). This document is your complete engineering handover guide. It is designed to take you from a high-level understanding of the product all the way down to the low-level implementation details of the codebase. Read this document thoroughly before making your first code change.
+
+---
+
+## 1. Executive Summary
+
+**GuardianAI** is a modern civic-tech web application designed to streamline the reporting and resolution of community infrastructure hazards (such as potholes, broken streetlights, or illegal dumping). 
+
+Historically, municipal issues go unreported due to friction in reporting systems, or they take too long to fix with little transparency. Furthermore, cities often struggle with fraudulent reports or workers claiming to have fixed an issue without actually visiting the site. 
+
+GuardianAI solves these business problems by providing a unified platform where:
+- **Citizens** can report issues simply by snapping a photo.
+- **Workers** (field staff) are dispatched to resolve issues and must provide photographic proof of resolution.
+- **Authorities** monitor a real-time dashboard of all civic issues.
+
+The core innovation of GuardianAI is its **AI-driven validation pipeline**. When a citizen uploads a photo, a custom ML model automatically classifies the hazard. When a worker submits a resolution photo, the system verifies their live GPS coordinates against the original report and uses computer vision to visually match the "before" and "after" photos, ensuring the issue was legitimately resolved.
+
+The project is currently at a prototype/MVP maturity level. It features a React-based Single Page Application (SPA), a Node.js/Express core API, and a decoupled Python Flask microservice handling the heavy AI workloads.
+
+---
+
+## 2. Big Picture Architecture
+
+GuardianAI utilizes a modern, decoupled three-tier architecture.
+
+```mermaid
+graph TD
+    %% Client Tier
+    Citizen([Citizen]) -->|Upload Photo + Device GPS| Frontend[React Web App]
+    Worker([Worker]) -->|Resolution Photo + Live GPS| Frontend
+    Authority([Authority]) -->|Monitor Dashboard| Frontend
+
+    %% Backend API Tier
+    Frontend -->|REST API Calls| CoreAPI[Node.js / Express Backend]
+    
+    %% Storage Tier
+    CoreAPI -->|1. Stream Image Buffer| CDN[(Cloudinary CDN)]
+    CDN -->|Secure URL| CoreAPI
+    CoreAPI -->|Read / Write State| DB[(MongoDB)]
+    
+    %% ML Microservice Tier
+    CoreAPI -->|2. HTTP POST Image URL| ML[Python Flask ML Service]
+    ML -->|YOLOv8 Class & Confidence| CoreAPI
+    ML -->|ORB Visual Match Score| CoreAPI
+```
+
+### Component Breakdown
+- **Client Application (React/Vite):** The frontend SPA handles the user interface, role-based rendering, and interactive mapping using Leaflet. It captures device GPS coordinates via the Browser Geolocation API when users submit photos.
+- **Core API (Node.js/Express):** The central orchestrator. It manages the database CRUD operations, handles business logic, executes GPS distance calculations, manages SLA (Service Level Agreement) background tasks, and acts as a gateway to the ML service.
+- **ML Microservice (Python/Flask):** A decoupled service that performs heavy computer vision tasks. It runs a YOLOv8 object detection model and uses OpenCV for feature matching. By isolating this, the Node.js API remains unblocked and highly responsive.
+- **Database (MongoDB):** A NoSQL store managing user profiles and alert documents. The alert documents contain a continuous `history` array to provide an immutable audit trail of state changes.
+- **CDN (Cloudinary):** Cloud storage for images. Instead of storing large image blobs in MongoDB or local server disks, images are streamed to Cloudinary, and only the secure URLs are saved in the database.
+
+---
+
+## 3. Repository Walkthrough
+
+The repository is structured as a monorepo containing all services required to run the application.
+
+- **`/frontend`**: Contains the React application. 
+  - Responsibility: Everything the user interacts with. 
+  - Dependencies: None (calls the backend).
+  - Entry Point: `src/main.jsx` and `src/App.jsx`.
+- **`/backend`**: Contains the Node.js Express API.
+  - Responsibility: Core business logic, database interaction, and SLA tracking.
+  - Dependencies: Requires MongoDB and the ML service to be running.
+  - Entry Point: `src/app.js`.
+  - Internal Organization: Follows a standard MVC-like pattern (`/routes`, `/controllers`, `/models`, `/services`).
+- **`/ml`**: Contains the Python Flask AI service.
+  - Responsibility: Object detection and image similarity matching.
+  - Dependencies: Relies on pre-trained YOLOv8 model weights (`civic_v1.pt`).
+  - Entry Point: `ml_api.py`.
+- **`/docker`**: Contains `Dockerfile`s for the frontend, backend, and ml services.
+- **`docker-compose.yml`**: The orchestration file to spin up all services simultaneously for local development or deployment.
+
+---
+
+## 4. Technology Stack
+
+- **React & Vite (Frontend):** Chosen for fast client-side rendering and rapid development. Vite provides near-instant Hot Module Replacement (HMR).
+- **Tailwind CSS (Frontend):** Utility-first CSS framework (NOT CONFIRMED explicitly in package.json from my brief view, but UI components indicate utility classes like `flex`, `min-h-screen`, `bg-paper`).
+- **Node.js & Express (Backend):** Chosen for its non-blocking I/O, making it excellent for handling concurrent API requests and streaming image uploads.
+- **MongoDB & Mongoose (Database):** A flexible NoSQL database. The document model perfectly fits the `Alert` structure, especially the deeply nested `history` array and ML metadata objects.
+- **Python & Flask (ML Service):** Python is the industry standard for ML. Flask was chosen as a lightweight wrapper to expose the AI models over HTTP.
+- **Ultralytics YOLOv8 (AI):** A state-of-the-art, real-time object detection model. Chosen for its speed and accuracy in identifying civic hazards.
+- **OpenCV (AI):** An open-source computer vision library used for image preprocessing (CLAHE, sharpening) and ORB feature matching.
+- **Cloudinary (Storage):** A cloud-based image and video management service. Chosen to offload heavy image hosting from the Node.js server.
+- **Node-Cron (Backend):** Used to schedule background tasks directly within the Node process (specifically, the SLA tracker).
+
+---
+
+## 5. Application Startup Flow
+
+When the backend application starts (`node src/app.js`):
+1. **Configuration Loading:** `dotenv` initializes, pulling environment variables (`PORT`, `MONGO_URI`, Cloudinary secrets).
+2. **Database Initialization:** `connectDB()` establishes a connection pool to MongoDB.
+3. **Cloudinary Initialization:** `configureCloudinary()` registers API keys.
+4. **Middleware Registration:** CORS is enabled. The Express JSON payload limit is explicitly increased to `"10mb"` to accommodate base64 image uploads from the frontend.
+5. **Route Registration:** `/api/auth` and `/api/complaints` are mounted.
+6. **Server Listening:** The HTTP server binds to the port (default 3001).
+7. **Background Workers:** A `node-cron` job is scheduled to run every 15 minutes. It executes `checkOverdueComplaints()` to monitor SLA breaches.
+
+Simultaneously, the ML Service (`ml_api.py`) starts:
+1. Initializes the Flask application.
+2. Imports `visual_detector.py`, which immediately loads the YOLOv8 model into memory (`civic_v1.pt`). *Note: This blocks startup until the heavy weights are loaded.*
+3. Binds to port 5000 and begins listening for HTTP requests.
+
+---
+
+## 6. Request Lifecycle
+
+**Scenario: A Citizen Reports a Pothole**
+
+1. **Client (React):** The user takes a photo and submits the form. The frontend converts the image to base64, grabs the device's GPS coordinates, and sends a POST request to `/api/complaints`.
+2. **API Gateway / Middleware (Express):** The request is received. The payload size limit allows the base64 string to pass. *(Note: Authentication middleware is currently missing on this route—see Section 23).*
+3. **Controller (`createComplaint`):** 
+   - Generates a sequential ID (e.g., `CP-00001`) via a Counter collection.
+   - Uploads the base64 image string directly to Cloudinary and retrieves the secure URL.
+4. **Service (ML Integration):** The controller sends a POST request to the Flask ML Service (`/analyze-issue`) containing the Cloudinary URL.
+5. **AI Pipeline (Flask):** The image is downloaded, preprocessed, and passed through YOLOv8. It returns detected classes (e.g., `ROAD_DAMAGE_DETECTED`).
+6. **Database Operation (MongoDB):** The Node.js controller constructs a new `Complaint` document. It sets the SLA deadline (72 hours), embeds the ML metadata, initializes the `history` array, and saves it to MongoDB.
+7. **Response:** A `201 Created` JSON response is sent back to the client, and the React app updates the local state to show the new pin on the map.
+
+---
+
+## 7. Complete Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Frontend
+    participant NodeAPI
+    participant Cloudinary
+    participant MLService
+    participant MongoDB
+
+    Frontend->>NodeAPI: POST /api/complaints (Base64 Image, GPS)
+    NodeAPI->>Cloudinary: Upload Base64 Image
+    Cloudinary-->>NodeAPI: Secure Image URL
+    NodeAPI->>MLService: POST /analyze-issue { image: URL }
+    MLService-->>NodeAPI: { has_issue: true, detections: [...] }
+    NodeAPI->>MongoDB: Save Complaint (Status: PENDING)
+    MongoDB-->>NodeAPI: Saved Document
+    NodeAPI-->>Frontend: 201 Created (Complaint Data)
+```
+
+---
+
+## 8. Database Design
+
+### `users` Collection
+- **Purpose:** Stores user accounts and role definitions.
+- **Important Fields:** `email` (unique index), `password` (hashed via bcrypt), `role` (`CITIZEN`, `WORKER`, `AUTHORITY`).
+
+### `complaints` Collection
+- **Purpose:** The core entity of the system. Tracks the entire lifecycle of a civic issue.
+- **Important Fields:**
+  - `id`: A sequential string (e.g., `CP-00012`) used for user-friendly referencing.
+  - `imageUrl` / `resolutionImageUrl`: Cloudinary URLs.
+  - `latitude` / `longitude`: Geospatial coordinates of the issue.
+  - `status`: Drives the state machine (e.g., `PENDING`, `RESOLVED`, `NEEDS_HUMAN_REVIEW`).
+  - `mlMetadata`: Stores what the AI found when the issue was reported.
+  - `verificationData` / `verificationScore`: Stores the results of worker resolution validation.
+  - `history`: An array of objects. **Critical Design Decision:** Instead of overwriting statuses, every state change appends a new entry here. This provides an immutable audit trail.
+  - `slaDeadline`: Used by the cron job to escalate overdue tickets.
+
+### `counters` Collection
+- **Purpose:** Tracks the current sequence number for generating human-readable complaint IDs (e.g., `CP-00001`).
+
+---
+
+## 9. API Documentation
+
+### Core API (Node.js)
+
+**`POST /api/complaints`**
+- **Purpose:** Submit a new civic issue.
+- **Request:** JSON containing `category`, `description`, `imageUrl` (base64), `latitude`, `longitude`.
+- **Response:** `201 Created` with the saved Complaint document.
+- **Business Logic:** Uploads image to Cloudinary, requests AI analysis, generates sequential ID, saves to DB.
+
+**`PATCH /api/complaints/:id/status`**
+- **Purpose:** Update the status of an issue (primarily used by workers submitting resolutions).
+- **Request:** JSON containing `resolutionImageUrl`, `resolutionLatitude`, `resolutionLongitude`, etc.
+- **Business Logic:** 
+  - Calculates Haversine distance between the original report and worker's live GPS. Rejects if >500m.
+  - Calls ML service `/verify-resolution` to match images.
+  - Appends to the `history` audit trail.
+
+**`POST /api/complaints/trigger-sla-check`**
+- **Purpose:** Manually invoke the SLA tracking cron job (useful for testing).
+
+### ML Microservice API (Flask)
+
+**`POST /analyze-issue`**
+- **Purpose:** Detect civic hazards in an image.
+- **Request:** `{ "image": "URL_OR_BASE64" }`
+- **Response:** `{ "success": true, "has_issue": boolean, "detections": [...] }`
+
+**`POST /verify-resolution`**
+- **Purpose:** Compare a before and after image to verify resolution.
+- **Request:** `{ "beforeImage": "URL", "afterImage": "URL" }`
+- **Response:** `{ "score": 0.65, "label": "VERIFIED_RESOLUTION", "reasoning": "..." }`
+
+---
+
+## 10. Core Business Logic
+
+### Resolution Verification Workflow (`updateComplaintStatus`)
+This is the most critical and complex logic in the system, preventing worker fraud.
+
+1. **Gatekeeper 1 (Geospatial):** When a worker submits a resolution, the Node.js controller calculates the Haversine distance between the original report's coordinates and the worker's live device coordinates. If the distance exceeds 500 meters, the resolution is instantly rejected (`REJECTED_GPS`).
+2. **Image Hosting:** The worker's resolution image is uploaded to Cloudinary.
+3. **Gatekeeper 2 (Visual AI):** The original URL and the new resolution URL are sent to the Python ML service.
+4. **State Machine Updates:** Based on the ML response, the status updates:
+   - `VERIFIED_RESOLUTION`: AI confirms the background matches and the issue is gone.
+   - `NEEDS_HUMAN_REVIEW`: Background matches, but the AI still detects an issue.
+   - `REJECTED_ML`: Backgrounds do not match at all (suspicious).
+
+### SLA Tracking (`slaService.js`)
+A Node-cron job polls the `complaints` collection every 15 minutes. It looks for documents where `status == "PENDING"`, `slaDeadline <= NOW`, and `slaBreachLogged == false`. If found, it appends an escalation message to the `history` array and flips `slaBreachLogged` to `true` to prevent duplicate logs.
+
+---
+
+## 11. AI / ML Pipeline
+
+The ML pipeline inside `visual_detector.py` operates in several stages:
+
+1. **Ingestion & Normalization:** Images are fetched (via URL or base64 decode) and converted to OpenCV BGR numpy arrays.
+2. **Preprocessing (`enhance_image_for_ai`):** Civic photos often suffer from poor lighting. The pipeline converts the image to YUV, applies CLAHE (Contrast Limited Adaptive Histogram Equalization) to the luminance channel, converts back to BGR, and applies a sharpening kernel to enhance edges.
+3. **Object Detection (`perform_object_detection`):** The enhanced image passes through a custom YOLOv8 model (`civic_v1.pt`).
+4. **Filtering:** Detections with confidence < 0.30 are discarded. Raw YOLO labels (e.g., '0' or 'pothole') are mapped to standardized civic classes (e.g., `ROAD_DAMAGE_DETECTED`).
+5. **Resolution Matching (`calculate_background_similarity`):** When verifying fixes, the pipeline uses ORB (Oriented FAST and Rotated BRIEF). It extracts up to 1000 keypoints from both images and uses a Brute Force Matcher (`BFMatcher` with `NORM_HAMMING`) to find geometric similarities, returning a confidence score.
+
+---
+
+## 12. Error Handling Strategy
+
+- **Graceful Degradation:** In `createComplaint`, if the Python ML service is offline or throws an error, the Node.js API catches the exception, logs it, and continues saving the complaint to MongoDB as a standard `PENDING` report. This ensures the app remains usable even if the AI tier fails.
+- **Transaction Fallbacks:** During resolution, if a worker fails the 500m distance check, the image is never uploaded to Cloudinary to save bandwidth and storage.
+- **SLA Fallback:** If a citizen report lacks a specific SLA deadline, the system automatically defaults to 72 hours.
+
+---
+
+## 13. Security
+
+- **Password Storage:** User passwords are securely hashed using `bcrypt` (12 rounds) in the Mongoose User schema pre-save hook.
+- **Role Enforcement (Frontend):** The React application uses contextual routing and state to hide resolution UI from citizens and reporting UI from workers.
+- **IMPORTANT LIMITATION (Backend):** While the architecture calls for JWT authentication, the actual Node.js Express routes in `backend/src/routes/complaints.js` **currently lack authentication middleware**. Any client can technically hit the API directly. *This is a known piece of technical debt.*
+
+---
+
+## 14. Configuration
+
+The application relies heavily on Environment Variables.
+
+**Backend (`.env`)**
+- `PORT`: The API port (default 3001).
+- `MONGO_URI`: Connection string for the MongoDB instance.
+- `CLOUDINARY_URL` / `CLOUDINARY_API_KEY`: Credentials for image hosting.
+- `ML_API_URL`: Points to the Python Flask service (e.g., `http://localhost:5000`). If omitted, defaults to localhost.
+
+*Changing `ML_API_URL` is required when deploying to production (e.g., pointing it to a Docker container name or external IP).*
+
+---
+
+## 15. Performance Considerations
+
+- **In-Memory Uploads:** The Node.js server does not write incoming images to disk. It receives base64 strings and pipes them directly over the network to Cloudinary, preventing disk space bottlenecks and I/O locking.
+- **Decoupled AI:** By moving YOLOv8 into a separate Python microservice, the single-threaded Node.js event loop isn't blocked for hundreds of milliseconds while performing matrix math.
+- **Client-Side Rendering:** The React frontend manages the heavy lifting for the Map views and list filtering, reducing server load.
+
+---
+
+## 16. Engineering Decisions
+
+- **Why Cloudinary?** Storing images as Base64 strings in MongoDB would massively bloat the database and destroy query performance. Storing them on a local filesystem makes horizontal scaling impossible. Cloudinary provides a robust CDN out of the box.
+- **Why ORB over SIFT/SURF?** The Python ML service uses ORB for image matching because it is open-source (not patented like SIFT was) and extremely fast, making it suitable for real-time HTTP requests.
+- **Why an Array for History?** Instead of just maintaining a `status` string, the `history` array in the `Complaint` model guarantees an immutable audit log. This is critical for municipal accountability.
+
+---
+
+## 17. Code Walkthrough
+
+**`backend/src/controllers/complaints.js`**
+- **Purpose:** The brain of the application. Handles creation, resolution, and verification of complaints.
+- **Important Flow:** Review `updateComplaintStatus()`. Notice how it handles the worker's resolution attempt by executing the Gatekeeper 1 (GPS) check before deciding whether to call the ML service or reject the request outright.
+
+**`ml/src/visual_detector.py`**
+- **Purpose:** The entire AI logic. 
+- **Important Flow:** Review `verify_resolution_images()`. It calculates a `background_score` using ORB. If the score is > 0.45, it checks object detections to decide between `VERIFIED_RESOLUTION` or `NEEDS_HUMAN_REVIEW`.
+
+**`frontend/src/App.jsx`**
+- **Purpose:** The React root. Manages global state (`complaints`, `activeTab`, `selectedComplaint`).
+- **Important Flow:** It handles URL query parameters (`?resolve=` or `?view=`) to immediately open specific complaints, bypassing the map view.
+
+---
+
+## 18. Complete End-to-End Example
+
+**Worker resolves a "Broken Streetlight"**
+1. Worker opens the Web App and selects the pending streetlight issue.
+2. Worker taps "Submit Resolution", taking a photo of the fixed light. The React app captures their live GPS.
+3. React sends `PATCH /api/complaints/:id/status` with the base64 photo and GPS.
+4. Node.js `complaints.js` controller checks distance. Worker is 20m away (Passes < 500m check).
+5. Node.js uploads the base64 string to Cloudinary.
+6. Node.js sends the original photo URL and the new Cloudinary URL to Flask `/verify-resolution`.
+7. Python downloads both images, applies CLAHE, and extracts ORB keypoints. It finds a 65% match (Score 0.65). YOLOv8 confirms no broken light is detected in the new photo.
+8. Python returns `label: "VERIFIED_RESOLUTION"`.
+9. Node.js appends a `RESOLVED` entry to the complaint's `history` array and saves to MongoDB.
+10. React receives 200 OK and shows a green "Resolved" toast notification.
+
+---
+
+## 19. Extension Guide
+
+**How to add a new AI classification:**
+1. **Python Model:** Retrain the YOLO model to recognize the new object and update `civic_v1.pt`.
+2. **Python Mapping:** Update `map_to_civic_category` in `ml/src/visual_detector.py` to map the new raw class string to a standardized constant (e.g., `WATER_LEAK`).
+3. **Frontend Categories:** Update any UI dropdowns or color mappings in the React app (likely in `types.js` or `App.jsx`) to handle the new category string.
+
+**How to add a new API route:**
+1. Define the logic in `backend/src/controllers/`.
+2. Map the route in `backend/src/routes/`.
+3. Add the route to `app.js` if it represents a new feature domain.
+
+---
+
+## 20. Common Pitfalls
+
+- **ML Service Port Binding:** The ML service runs on port `5000`. If you have an instance of Control Center or another service running on port 5000, Flask will crash on startup.
+- **Base64 Payload Size:** If users upload 4K images from modern smartphones, the base64 string can exceed Express's default limits. We've set it to `"10mb"`, but very large images might still trigger `413 Payload Too Large`.
+- **Missing Auth Middleware:** Do not assume API routes are protected. The controllers currently lack backend JWT validation checks.
+
+---
+
+## 21. Suggested Reading Order
+
+To deeply understand this codebase, read the files in this order:
+1. `backend/src/models/Complaint.js` (Understand the data structure first).
+2. `frontend/src/App.jsx` (Understand the user flow and state).
+3. `backend/src/controllers/complaints.js` (Understand the business logic and gatekeepers).
+4. `ml/ml_api.py` (See how the ML endpoints are exposed).
+5. `ml/src/visual_detector.py` (Deep dive into the AI logic).
+
+---
+
+## 22. Feature Inventory
+
+- **AI Hazard Classification:** Citizen uploads photo -> AI detects issue (YOLOv8).
+- **Fraud Prevention (GPS):** Worker uploads resolution -> Backend validates distance < 500m.
+- **Automated Visual Verification:** Worker uploads resolution -> AI matches ORB features to original photo.
+- **Live Map:** React Leaflet map displaying pins for all issues.
+- **SLA Tracking:** Background cron job automatically escalates tickets older than 72 hours.
+- **Immutable Audit Trail:** All state changes are appended to a history array rather than overwriting fields.
+
+---
+
+## 23. Current Limitations
+
+- **Technical Debt (Security):** The backend routes in `backend/src/routes/complaints.js` do not utilize JWT authentication middleware. Role checks are currently only enforced on the frontend.
+- **Functional Limitation (Resolution Uploads):** If a worker is in an area with zero cellular service, they cannot submit a resolution because the system requires a live GPS check at the moment of submission.
+- **Functional Limitation:** Exif parsing for citizen uploads is mentioned in the architecture design, but is largely handled by client-side browser GPS logic in the current implementation.
+
+---
+
+## 24. New Developer Onboarding Checklist
+
+1. **Required Software:** Node.js (v18+), Python (3.9+), MongoDB (Local or Atlas), Docker (Optional).
+2. **Environment Setup:** 
+   - Create a `.env` file in `/backend` using variables provided by your team lead (Requires Cloudinary API keys).
+3. **Database Setup:** Start your local MongoDB server.
+4. **Running Locally:**
+   - **Terminal 1 (Backend):** `cd backend && npm install && npm run dev`
+   - **Terminal 2 (Frontend):** `cd frontend && npm install && npm run dev`
+   - **Terminal 3 (ML Service):** `cd ml && pip install -r requirements.txt && python ml_api.py`
+5. **First Action:** Open `http://localhost:5173`. Create a new citizen account and submit a report. Monitor the Node.js console to see the base64 image processing, and the Python console to see the YOLOv8 inference logs.
+6. **Debugging Tips:** The Python ML service outputs highly verbose `DEBUG:` logs showing the exact number of ORB keypoints found during image matching. If resolutions are failing, check this log first.
+
+Welcome to the team!
