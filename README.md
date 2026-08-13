@@ -250,8 +250,8 @@ GuardianAI/
 **Root `.env`** (shared workspace):
 
 ```env
-MONGODB_URI=mongodb://127.0.0.1:27017/civicproof
-# OR the provided Atlas connection string
+MONGODB_URI=<Your-MONGODB-URI>
+# e.g. mongodb://127.0.0.1:27017/civicproof or the provided Atlas connection string
 ```
 
 **Backend `.env`** (`backend/.env`):
