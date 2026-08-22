@@ -76,7 +76,7 @@ export function ResolvePage() {
           </Link>
         </Button>
         <EmptyState
-          icon={XCircle}
+          variant="error"
           title="Report not found"
           description={isError ? normalizeError(error).message : "This report may have been removed."}
           action={
@@ -99,7 +99,7 @@ export function ResolvePage() {
           </Link>
         </Button>
         <EmptyState
-          icon={CheckCircle2}
+          variant="no-jobs"
           title="Nothing to resolve"
           description={`This report is currently ${complaint.status.replaceAll("_", " ").toLowerCase()} and is not awaiting resolution.`}
           action={

@@ -262,7 +262,7 @@ export function ComplaintDetailPage() {
           </Link>
         </Button>
         <EmptyState
-          icon={XCircle}
+          variant="error"
           title="Report not found"
           description={isError ? normalizeError(error).message : "This report may have been removed."}
           action={

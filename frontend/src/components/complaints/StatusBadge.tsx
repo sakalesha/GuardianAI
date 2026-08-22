@@ -1,15 +1,18 @@
-import { statusBadgeClasses, statusMeta } from "@/lib/status";
+import { statusBadgeClasses, statusMeta, getCitizenLabel, getCitizenIcon } from "@/lib/status";
 import { cn } from "@/lib/cn";
 import type { ComplaintStatus } from "@/types/complaint";
 
 interface StatusBadgeProps {
   status: ComplaintStatus;
   className?: string;
+  variant?: "citizen" | "admin";
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, className, variant = "citizen" }: StatusBadgeProps) {
   const meta = statusMeta(status);
-  const Icon = meta.icon;
+  const isCitizen = variant === "citizen";
+  const label = isCitizen ? getCitizenLabel(status) : meta.label;
+  const Icon = isCitizen ? getCitizenIcon(status) : meta.icon;
   return (
     <span
       className={cn(
@@ -20,7 +23,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
       title={meta.description}
     >
       <Icon className="size-3" aria-hidden="true" />
-      {meta.label}
+      {label}
     </span>
   );
 }

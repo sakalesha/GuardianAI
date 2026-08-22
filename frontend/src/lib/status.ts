@@ -6,6 +6,7 @@ import {
   Clock,
   Eye,
   ImageOff,
+  MapPin,
   MapPinOff,
   RotateCcw,
   SearchCheck,
@@ -41,92 +42,122 @@ export interface StatusMeta {
   description: string;
   icon: LucideIcon;
   tone: StatusTone;
+  citizenLabel?: string;
+  citizenIcon?: LucideIcon;
 }
+
+// Citizen-facing status lifecycle:
+// Reported -> Under Review -> Verified -> In Progress -> Resolved
+// Rejected / Dismissed
 
 export const STATUS_META: Record<ComplaintStatus, StatusMeta> = {
   PENDING: {
     status: "PENDING",
-    label: "Pending",
-    description: "Awaiting verification and action",
-    icon: Clock,
+    label: "Reported",
+    description: "Report submitted, awaiting initial review",
+    citizenLabel: "Reported",
+    icon: MapPin,
     tone: "primary",
+    citizenIcon: MapPin,
   },
   RESOLVED: {
     status: "RESOLVED",
     label: "Resolved",
     description: "Issue resolved and verified",
+    citizenLabel: "Resolved",
     icon: CheckCircle2,
     tone: "success",
+    citizenIcon: CheckCircle2,
   },
   REOPENED: {
     status: "REOPENED",
     label: "Reopened",
     description: "Reopened for further review",
+    citizenLabel: "Reopened",
     icon: RotateCcw,
     tone: "warning",
+    citizenIcon: RotateCcw,
   },
   DISMISSED: {
     status: "DISMISSED",
     label: "Dismissed",
     description: "Case dismissed",
+    citizenLabel: "Dismissed",
     icon: XCircle,
     tone: "muted",
+    citizenIcon: XCircle,
   },
   REJECTED_GPS: {
     status: "REJECTED_GPS",
     label: "Rejected (Location)",
     description: "Evidence location did not match the report",
+    citizenLabel: "Rejected",
     icon: MapPinOff,
     tone: "destructive",
+    citizenIcon: AlertTriangle,
   },
   REJECTED_ML: {
     status: "REJECTED_ML",
     label: "Rejected (AI)",
     description: "No matching issue detected by AI",
+    citizenLabel: "Rejected",
     icon: ImageOff,
     tone: "destructive",
+    citizenIcon: AlertTriangle,
   },
   REJECTED_MANUAL: {
     status: "REJECTED_MANUAL",
     label: "Rejected",
     description: "Rejected by an authority",
+    citizenLabel: "Rejected",
     icon: UserX,
     tone: "destructive",
+    citizenIcon: AlertTriangle,
   },
   NEEDS_HUMAN_REVIEW: {
     status: "NEEDS_HUMAN_REVIEW",
-    label: "Needs Review",
+    label: "Under Review",
     description: "Flagged for human review",
+    citizenLabel: "Under Review",
     icon: Eye,
     tone: "warning",
+    citizenIcon: Clock,
   },
   VERIFIED_TENTATIVE: {
     status: "VERIFIED_TENTATIVE",
-    label: "Tentative",
+    label: "Verified",
     description: "Resolution tentatively verified",
+    citizenLabel: "Verified",
     icon: SearchCheck,
     tone: "info",
+    citizenIcon: CheckCircle2,
   },
   VERIFIED_RESOLUTION: {
     status: "VERIFIED_RESOLUTION",
     label: "Verified",
     description: "Resolution fully verified",
+    citizenLabel: "Verified",
     icon: ShieldCheck,
     tone: "success",
+    citizenIcon: CheckCircle2,
   },
   SUSPICIOUS: {
     status: "SUSPICIOUS",
-    label: "Suspicious",
+    label: "Flagged",
     description: "Marked as suspicious",
+    citizenLabel: "Flagged",
     icon: AlertTriangle,
     tone: "destructive",
+    citizenIcon: AlertTriangle,
   },
   SUSPICIOUS_CONTENT: {
     status: "SUSPICIOUS_CONTENT",
-    label: "Suspicious Content",
+    label: "Flagged",
     description: "Reported content failed AI verification",
+    citizenLabel: "Flagged",
     icon: ShieldAlert,
     tone: "destructive",
+    citizenIcon: AlertTriangle,
   },
 };
 
@@ -140,6 +171,14 @@ export function statusMeta(status: ComplaintStatus): StatusMeta {
   };
 }
 
+export function getCitizenLabel(status: ComplaintStatus): string {
+  return STATUS_META[status]?.citizenLabel ?? statusMeta(status).label;
+}
+
+export function getCitizenIcon(status: ComplaintStatus): LucideIcon {
+  return STATUS_META[status]?.citizenIcon ?? statusMeta(status).icon;
+}
+
 export function statusBadgeClasses(status: string): string {
   if (isComplaintStatus(status)) {
     return TONE_BADGE[statusMeta(status).tone];
@@ -149,7 +188,7 @@ export function statusBadgeClasses(status: string): string {
 
 export const TONE_HEX: Record<StatusTone, string> = {
   neutral: "#52525b",
-  primary: "#0f766e",
+  primary: "#5E6AD2",
   success: "#059669",
   warning: "#d97706",
   destructive: "#e11d48",

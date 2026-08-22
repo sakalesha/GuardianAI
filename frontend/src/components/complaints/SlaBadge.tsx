@@ -9,9 +9,9 @@ interface SlaBadgeProps {
 
 export function SlaBadge({ deadline, className }: SlaBadgeProps) {
   const state = slaState(deadline);
-  const variant = state.overdue ? "destructive" : state.urgent ? "warning" : "neutral";
+  const tone = state.overdue ? "destructive" : state.urgent ? "warning" : "neutral";
   return (
-    <Badge variant={variant} className={cn(className)}>
+    <Badge tone={tone} variant="solid" className={cn(className)}>
       {state.label}
     </Badge>
   );

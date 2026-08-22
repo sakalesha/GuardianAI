@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ArrowUpRight, Crosshair } from "lucide-react";
+import { ArrowUpRight, Crosshair, MapPin, CheckCircle, AlertCircle, Clock, MapPin as MapPinIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/complaints/StatusBadge";
@@ -26,12 +26,12 @@ function pinIcon(color: string): L.DivIcon {
 }
 export { pinIcon };
 
-function clusterIcon(count: number, color: string): L.DivIcon {
+function clusterIcon(count: number): L.DivIcon {
   return L.divIcon({
     className: "civic-div-icon",
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:${color};color:#fff;font:600 12px/1 system-ui,sans-serif;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.35)">${count}</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#1a1a2e;color:#fff;font:600 12px/1 system-ui,sans-serif;border:2px solid #2a2a4a;box-shadow:0 2px 8px rgba(0,0,0,0.4)">${count}</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
   });
 }
 
@@ -59,23 +59,6 @@ function clusterComplaints(complaints: Complaint[], zoom: number): Cluster[] {
   }));
 }
 
-function dominantColor(complaints: Complaint[]): string {
-  const counts = new Map<string, number>();
-  for (const c of complaints) {
-    const col = statusColor(c.status);
-    counts.set(col, (counts.get(col) ?? 0) + 1);
-  }
-  let best = statusColor("PENDING");
-  let max = -1;
-  for (const [col, n] of counts) {
-    if (n > max) {
-      max = n;
-      best = col;
-    }
-  }
-  return best;
-}
-
 export function ThemeTileLayer() {
   const [dark, setDark] = useState(() =>
     typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
@@ -99,14 +82,18 @@ export function ThemeTileLayer() {
   return <TileLayer url={url} attribution={attribution} />;
 }
 
-function FitBounds({ complaints }: { complaints: Complaint[] }) {
+function FitBounds({ complaints, userLocation }: { complaints: Complaint[]; userLocation?: [number, number] | null }) {
   const map = useMap();
   const signature = useMemo(
-    () => complaints.map((c) => c.id).join("|"),
-    [complaints],
+    () => complaints.map((c) => c.id).join("|") + (userLocation ? `|${userLocation.join(",")}` : ""),
+    [complaints, userLocation],
   );
 
   useEffect(() => {
+    if (userLocation) {
+      map.setView(userLocation, 14, { duration: 1 });
+      return;
+    }
     if (!complaints.length) return;
     const bounds = L.latLngBounds(complaints.map((c) => [c.latitude, c.longitude]));
     if (!bounds.isValid()) return;
@@ -116,7 +103,7 @@ function FitBounds({ complaints }: { complaints: Complaint[] }) {
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, map]);
+  }, [signature, map, userLocation]);
 
   return null;
 }
@@ -124,6 +111,8 @@ function FitBounds({ complaints }: { complaints: Complaint[] }) {
 function LocateControl() {
   const map = useMap();
   const [locating, setLocating] = useState(false);
+  const hasAutoLocated = useRef(false);
+  const [reportsWithinRadius, setReportsWithinRadius] = useState<number | null>(null);
 
   const locate = () => {
     if (!("geolocation" in navigator)) {
@@ -131,9 +120,11 @@ function LocateControl() {
       return;
     }
     setLocating(true);
+    setReportsWithinRadius(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.2 });
+        const userLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        map.flyTo(userLoc, 14, { duration: 1.2 });
         setLocating(false);
       },
       (err) => {
@@ -143,6 +134,13 @@ function LocateControl() {
       { enableHighAccuracy: true, timeout: 10_000 },
     );
   };
+
+  useEffect(() => {
+    if (!hasAutoLocated.current) {
+      hasAutoLocated.current = true;
+      locate();
+    }
+  }, [locate]);
 
   return (
     <Button
@@ -154,36 +152,49 @@ function LocateControl() {
       aria-label="Locate me"
     >
       <Crosshair className="size-4" aria-hidden="true" />
-      {locating ? "Locating…" : "My location"}
+      {locating ? "Locating…" : reportsWithinRadius !== null ? `📍 ${reportsWithinRadius} nearby` : "My location"}
     </Button>
   );
 }
 
-const LEGEND: { label: string; color: string }[] = [
-  { label: "Pending / active", color: statusColor("PENDING") },
-  { label: "Needs review", color: statusColor("NEEDS_HUMAN_REVIEW") },
-  { label: "Tentative", color: statusColor("VERIFIED_TENTATIVE") },
-  { label: "Resolved", color: statusColor("RESOLVED") },
-  { label: "Rejected", color: statusColor("REJECTED_ML") },
-  { label: "Dismissed", color: statusColor("DISMISSED") },
+const LEGEND: { label: string; color: string; icon: React.ReactNode }[] = [
+  { label: "Reported", color: "#3b82f6", icon: <MapPinIcon className="size-3" /> },
+  { label: "Under Review", color: "#f59e0b", icon: <Clock className="size-3" /> },
+  { label: "Verified", color: "#10b981", icon: <CheckCircle className="size-3" /> },
+  { label: "In Progress", color: "#8b5cf6", icon: <MapPinIcon className="size-3" /> },
+  { label: "Resolved", color: "#22c55e", icon: <CheckCircle className="size-3" /> },
+  { label: "Rejected", color: "#ef4444", icon: <AlertCircle className="size-3" /> },
+  { label: "Dismissed", color: "#6b7280", icon: <AlertCircle className="size-3" /> },
 ];
 
 function MapOverlay() {
+  const [legendOpen, setLegendOpen] = useState(true);
+
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] flex flex-col items-start gap-2">
-      <div
-        className="pointer-events-none rounded-md border bg-card/95 p-2 text-xs shadow-sm backdrop-blur"
-        aria-hidden="true"
-      >
-        {LEGEND.map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5 py-0.5">
-            <span
-              className="size-2.5 shrink-0 rounded-full border border-black/10"
-              style={{ backgroundColor: item.color }}
-            />
-            {item.label}
+      <div className="flex flex-col items-start gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="pointer-events-auto shadow-sm rounded-full px-2 h-8"
+          onClick={() => setLegendOpen(!legendOpen)}
+          aria-label={legendOpen ? "Collapse legend" : "Expand legend"}
+          aria-expanded={legendOpen}
+        >
+          <span className="text-xs font-medium">Legend</span>
+        </Button>
+        {legendOpen && (
+          <div className="pointer-events-auto rounded-md border bg-card/95 p-2 text-xs shadow-sm backdrop-blur animate-in slide-in-from-bottom-2">
+            {LEGEND.map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5 py-0.5">
+                <span className="flex items-center justify-center">
+                  {item.icon}
+                </span>
+                <span style={{ color: item.color }}>{item.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
       <LocateControl />
     </div>
@@ -193,18 +204,35 @@ function MapOverlay() {
 function PopupContent({ complaint }: { complaint: Complaint }) {
   const cat = categoryMeta(complaint.category);
   const CatIcon = cat.icon;
+  const statusLabel = getStatusLabel(complaint.status);
+  const statusIcon = getStatusIcon(complaint.status);
+  const timeAgo = formatTimeAgo(complaint.createdAt);
+
   return (
-    <div className="min-w-44 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1 text-sm font-semibold">
+    <div className="min-w-52 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1 text-sm font-semibold">
           <CatIcon className="size-4" aria-hidden="true" />
           {cat.label}
+        </div>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+          {statusIcon}
+          {statusLabel}
         </span>
-        <StatusBadge status={complaint.status} />
       </div>
       <p className="line-clamp-2 text-xs text-muted-foreground">
         {complaint.description || "No description provided."}
       </p>
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <MapPinIcon className="size-3" aria-hidden="true" />
+          {complaint.address || "Location unavailable"}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Clock className="size-3" aria-hidden="true" />
+          {timeAgo}
+        </span>
+      </div>
       <Link
         to={`/reports/${complaint.id}`}
         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
@@ -216,7 +244,49 @@ function PopupContent({ complaint }: { complaint: Complaint }) {
   );
 }
 
-function ClusterLayer({ complaints }: { complaints: Complaint[] }) {
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    PENDING: "Reported",
+    NEEDS_HUMAN_REVIEW: "Under Review",
+    VERIFIED_TENTATIVE: "Verified",
+    IN_PROGRESS: "In Progress",
+    RESOLVED: "Resolved",
+    REJECTED_ML: "Rejected",
+    DISMISSED: "Dismissed",
+    SUSPICIOUS_CONTENT: "Flagged",
+  };
+  return labels[status] ?? status;
+}
+
+function getStatusIcon(status: string): React.ReactNode {
+  const icons: Record<string, React.ReactNode> = {
+    PENDING: <MapPinIcon className="size-3" />,
+    NEEDS_HUMAN_REVIEW: <Clock className="size-3" />,
+    VERIFIED_TENTATIVE: <CheckCircle className="size-3" />,
+    IN_PROGRESS: <MapPinIcon className="size-3" />,
+    RESOLVED: <CheckCircle className="size-3" />,
+    REJECTED_ML: <AlertCircle className="size-3" />,
+    DISMISSED: <AlertCircle className="size-3" />,
+    SUSPICIOUS_CONTENT: <AlertCircle className="size-3" />,
+  };
+  return icons[status] ?? <MapPinIcon className="size-3" />;
+}
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function ClusterLayer({ complaints, userLocation }: { complaints: Complaint[]; userLocation?: [number, number] | null }) {
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
 
@@ -253,7 +323,7 @@ function ClusterLayer({ complaints }: { complaints: Complaint[] }) {
           <Marker
             key={cluster.key}
             position={[cluster.lat, cluster.lng]}
-            icon={clusterIcon(cluster.complaints.length, dominantColor(cluster.complaints))}
+            icon={clusterIcon(cluster.complaints.length)}
             eventHandlers={{ click: () => map.setView([cluster.lat, cluster.lng], zoom + 2) }}
           />
         );
@@ -265,9 +335,10 @@ function ClusterLayer({ complaints }: { complaints: Complaint[] }) {
 interface MapViewProps {
   complaints: Complaint[];
   fitOnMount?: boolean;
+  userLocation?: [number, number] | null;
 }
 
-export function MapView({ complaints, fitOnMount = true }: MapViewProps) {
+export function MapView({ complaints, fitOnMount = true, userLocation = null }: MapViewProps) {
   return (
     <MapContainer
       center={DEFAULT_CENTER}
@@ -276,8 +347,8 @@ export function MapView({ complaints, fitOnMount = true }: MapViewProps) {
       className="relative h-full w-full"
     >
       <ThemeTileLayer />
-      {fitOnMount && <FitBounds complaints={complaints} />}
-      <ClusterLayer complaints={complaints} />
+      {fitOnMount && <FitBounds complaints={complaints} userLocation={userLocation} />}
+      <ClusterLayer complaints={complaints} userLocation={userLocation} />
       <MapOverlay />
     </MapContainer>
   );

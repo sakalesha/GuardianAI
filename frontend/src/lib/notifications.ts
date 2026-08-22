@@ -11,6 +11,8 @@ export interface NotificationEvent {
   to: ComplaintStatus;
   message: string;
   timestamp: string;
+  read?: boolean;
+  type?: "info" | "success" | "warning" | "error";
 }
 
 export type NotificationScope = "citizen" | "worker" | "authority";
@@ -89,6 +91,8 @@ export function notificationEvents(
       to: curr.status,
       message: eventMessage(curr, before.status, curr.status, ctx.scope),
       timestamp: new Date().toISOString(),
+      read: false,
+      type: "info",
     });
   }
 

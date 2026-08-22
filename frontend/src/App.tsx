@@ -23,11 +23,11 @@ const LoginPage = lazyPage(() =>
 const RegisterPage = lazyPage(() =>
   import("@/features/auth/RegisterPage").then((m) => ({ default: m.RegisterPage })),
 );
-const HomeRedirect = lazyPage(() =>
-  import("@/features/home/HomeRedirect").then((m) => ({ default: m.HomeRedirect })),
-);
 const NotFoundPage = lazyPage(() =>
   import("@/features/home/HomeRedirect").then((m) => ({ default: m.NotFoundPage })),
+);
+const LandingPage = lazyPage(() =>
+  import("@/features/landing/LandingPage").then((m) => ({ default: m.LandingPage })),
 );
 const MapPage = lazyPage(() =>
   import("@/features/map/MapPage").then((m) => ({ default: m.MapPage })),
@@ -63,10 +63,10 @@ export const router = createBrowserRouter([
     children: [
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
+      { index: true, element: <LandingPage /> },
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <HomeRedirect /> },
           {
             path: "map",
             element: (

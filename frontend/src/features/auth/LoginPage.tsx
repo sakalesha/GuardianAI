@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -30,6 +30,18 @@ export function LoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [rootError, setRootError] = useState<string | null>(null);
+
+  // Request location permission on mount if not already granted
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    const hasPrompted = sessionStorage.getItem("geolocation-prompted");
+    if (hasPrompted) return;
+    sessionStorage.setItem("geolocation-prompted", "true");
+    navigator.geolocation.getCurrentPosition(
+      () => {},
+      () => {} // Ignore error - permission will be remembered
+    );
+  }, []);
 
   const {
     register,

@@ -8,7 +8,6 @@ import {
   RefreshCw,
   ShieldCheck,
   Timer,
-  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -102,7 +101,7 @@ export function AnalyticsPage() {
       <div className="space-y-6">
         <PageHeader title="Analytics" description="Platform performance at a glance." />
         <EmptyState
-          icon={TriangleAlert}
+          variant="error"
           title="Could not load analytics"
           description={normalizeError(error).message}
           action={
@@ -121,7 +120,7 @@ export function AnalyticsPage() {
       <div className="space-y-6">
         <PageHeader title="Analytics" description="Platform performance at a glance." />
         <EmptyState
-          icon={BarChart3}
+          variant="no-reports"
           title="No data yet"
           description="Analytics will populate as citizens file reports."
         />
@@ -168,17 +167,33 @@ export function AnalyticsPage() {
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip />
+            <Tooltip
+              contentStyle={{
+                background: "rgba(15,15,20,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                color: "#fff",
+                fontSize: 12,
+              }}
+            />
             <Legend />
           </PieChart>
         </ChartCard>
 
         <ChartCard title="SLA compliance by category">
           <BarChart data={a.slaData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="category" tick={{ fontSize: 12 }} interval={0} />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
+            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="category"               tick={{ fill: "#a1a1aa", fontSize: 12 }} interval={0} />
+            <YAxis allowDecimals={false} tick={{ fill: "#a1a1aa" }} />
+            <Tooltip
+              contentStyle={{
+                background: "rgba(15,15,20,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                color: "#fff",
+                fontSize: 12,
+              }}
+            />
             <Legend />
             <Bar dataKey="withinSla" name="Within SLA" stackId="sla" fill="#059669" />
             <Bar dataKey="breached" name="Breached" stackId="sla" fill="#e11d48" />
@@ -188,10 +203,19 @@ export function AnalyticsPage() {
 
         <ChartCard title="Reports by category">
           <BarChart data={a.categoryData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="category" tick={{ fontSize: 12 }} interval={0} />
-            <YAxis allowDecimals={false} />
-            <Tooltip cursor={{ fill: "rgba(0,0,0,0.05)" }} />
+            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="category"               tick={{ fill: "#a1a1aa", fontSize: 12 }} interval={0} />
+            <YAxis allowDecimals={false} tick={{ fill: "#a1a1aa" }} />
+            <Tooltip
+              cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              contentStyle={{
+                background: "rgba(15,15,20,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                color: "#fff",
+                fontSize: 12,
+              }}
+            />
             <Bar dataKey="count" name="Reports" radius={[4, 4, 0, 0]}>
               {a.categoryData.map((entry) => (
                 <Cell key={entry.category} fill={entry.color} />
@@ -204,26 +228,33 @@ export function AnalyticsPage() {
           <AreaChart data={a.trendData}>
             <defs>
               <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0f766e" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#0f766e" stopOpacity={0} />
+                <stop offset="0%" stopColor="#5E6AD2" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#5E6AD2" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11 }}
+              tick={{ fill: "#a1a1aa", fontSize: 11 }}
               tickFormatter={(value: string) => format(new Date(value), "MMM d")}
               interval={5}
             />
-            <YAxis allowDecimals={false} />
+            <YAxis allowDecimals={false} tick={{ fill: "#a1a1aa" }} />
             <Tooltip
               labelFormatter={(value) => format(new Date(String(value)), "MMM d, yyyy")}
+              contentStyle={{
+                background: "rgba(15,15,20,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                color: "#fff",
+                fontSize: 12,
+              }}
             />
             <Area
               type="monotone"
               dataKey="count"
               name="Reports"
-              stroke="#0f766e"
+              stroke="#5E6AD2"
               strokeWidth={2}
               fill="url(#trendFill)"
             />

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { RefreshCw, Search, SearchX } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { useComplaints } from "@/hooks/useComplaints";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { normalizeError } from "@/api/client";
@@ -148,7 +148,7 @@ export function ReportsPage() {
               value={filters.q}
               onChange={(e) => patch({ q: e.target.value })}
               placeholder="Search by ID, category, description…"
-              className="pl-9"
+              className="pl-9!"
               aria-label="Search reports"
             />
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -217,7 +217,7 @@ export function ReportsPage() {
         </div>
       ) : isError ? (
         <EmptyState
-          icon={SearchX}
+          variant="error"
           title="Could not load reports"
           description={normalizeError(error).message}
           action={
@@ -229,6 +229,7 @@ export function ReportsPage() {
         />
       ) : sorted.length === 0 ? (
         <EmptyState
+          variant={isCitizen ? "no-reports" : queueOpen ? "no-jobs" : "no-results"}
           title={queueOpen ? "No open jobs right now" : isCitizen ? "No reports yet" : "No matches"}
           description={
             queueOpen

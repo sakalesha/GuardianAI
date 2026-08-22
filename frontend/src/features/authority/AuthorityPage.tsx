@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ClipboardCheck, RefreshCw, TriangleAlert } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useComplaints } from "@/hooks/useComplaints";
 import { normalizeError } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ export function AuthorityPage() {
         </div>
       ) : isError ? (
         <EmptyState
-          icon={TriangleAlert}
+          variant="error"
           title="Could not load reports"
           description={normalizeError(error).message}
           action={
@@ -71,7 +71,7 @@ export function AuthorityPage() {
         />
       ) : visible.length === 0 ? (
         <EmptyState
-          icon={ClipboardCheck}
+          variant="no-reviews"
           title={tab === "all" ? "No reports yet" : "Nothing needs review"}
           description={
             tab === "all"

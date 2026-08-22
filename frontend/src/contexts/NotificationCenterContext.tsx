@@ -15,6 +15,7 @@ interface NotificationCenterValue {
   unreadCount: number;
   addEvents: (events: NotificationEvent[]) => void;
   markAllRead: () => void;
+  markAsRead: (id: string) => void;
 }
 
 const NotificationCenterContext = createContext<NotificationCenterValue | null>(null);
@@ -25,15 +26,30 @@ export function NotificationCenterProvider({ children }: { children: ReactNode }
 
   const addEvents = useCallback((newEvents: NotificationEvent[]) => {
     if (newEvents.length === 0) return;
-    setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_EVENTS));
+    const eventsWithRead = newEvents.map((e) => ({ ...e, read: false }));
+    setEvents((prev) => [...eventsWithRead, ...prev].slice(0, MAX_EVENTS));
     setUnreadCount((count) => count + newEvents.length);
   }, []);
 
-  const markAllRead = useCallback(() => setUnreadCount(0), []);
+  const markAllRead = useCallback(() => {
+    setEvents((prev) => prev.map((e) => ({ ...e, read: true })));
+    setUnreadCount(0);
+  }, []);
+
+  const markAsRead = useCallback((id: string) => {
+    setEvents((prev) => {
+      const event = prev.find((e) => e.id === id);
+      if (event && !event.read) {
+        setUnreadCount((count) => Math.max(0, count - 1));
+        return prev.map((e) => (e.id === id ? { ...e, read: true } : e));
+      }
+      return prev;
+    });
+  }, []);
 
   const value = useMemo(
-    () => ({ events, unreadCount, addEvents, markAllRead }),
-    [events, unreadCount, addEvents, markAllRead],
+    () => ({ events, unreadCount, addEvents, markAllRead, markAsRead }),
+    [events, unreadCount, addEvents, markAllRead, markAsRead],
   );
 
   return (

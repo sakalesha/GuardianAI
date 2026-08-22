@@ -86,7 +86,7 @@ export function ProfilePage() {
         title="Profile"
         description="Your account and role on CivicProof."
       />
-      <Card className="max-w-lg">
+      <Card className="max-w-3xl">
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
           <Avatar className="size-16 text-lg">
             <AvatarFallback>{initials(user.name)}</AvatarFallback>
@@ -94,7 +94,7 @@ export function ProfilePage() {
           <div className="space-y-1">
             <CardTitle>{user.name}</CardTitle>
             <CardDescription>{user.email}</CardDescription>
-            <Badge variant="secondary">{ROLE_LABELS[user.role] ?? user.role}</Badge>
+            <Badge tone="brand">{ROLE_LABELS[user.role] ?? user.role}</Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -141,7 +141,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <div className="grid max-w-lg grid-cols-3 gap-3">
+      <div className="grid max-w-3xl grid-cols-3 gap-3">
         {stats.map((stat) => (
           <Stat key={stat.label} label={stat.label} value={stat.value} />
         ))}
